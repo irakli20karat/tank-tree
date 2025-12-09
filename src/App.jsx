@@ -15,6 +15,9 @@ import {
   MoveHorizontal,
   AlertTriangle,
   MousePointer2,
+  Link as LinkIcon,
+  Unlink,
+  ArrowDownCircle
 } from 'lucide-react';
 
 /**
@@ -26,17 +29,17 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
  * Constants
  */
 const COLUMN_WIDTH = 160;
+const TANK_WIDTH = 144; // w-36
 
 const TankCard = ({
   tank,
   isSelected,
-  onEdit,   // Double click edit
+  onEdit,
   onDelete,
-  getRef,
   onMouseDown,
   isDragging,
-  dragPosition, // { x, y }
-  conflictType
+  conflictType,
+  setRef
 }) => {
 
   // Conflict Styles
@@ -48,36 +51,40 @@ const TankCard = ({
     bgClass = "bg-red-900/20";
   } else if (conflictType === 'blocker') {
     borderClass = 'border-orange-500 shadow-orange-500/40';
+    bgClass = "bg-orange-900/10";
   }
 
-  // If dragging, we use fixed positioning based on mouse coordinates
-  const dragStyle = isDragging ? {
-    position: 'fixed',
-    left: dragPosition.x,
-    top: dragPosition.y,
-    zIndex: 1000,
-    pointerEvents: 'none', // Critical: allows mouse events to pass through to check for tiers below
-    width: '144px' // w-36
-  } : {
+  // Styles
+  const style = {
     gridColumnStart: (tank.columnIndex || 0) + 1,
     gridRowStart: 1,
     zIndex: isSelected ? 20 : 10,
   };
 
+  // If Dragging: Fixed position, high Z-index, ignore pointer events
+  if (isDragging) {
+    style.position = 'fixed';
+    style.zIndex = 1000;
+    style.pointerEvents = 'none';
+    style.width = `${TANK_WIDTH}px`;
+  }
+
   return (
     <div
-      ref={(el) => getRef(tank.id, el)}
+      ref={setRef}
       onMouseDown={(e) => onMouseDown(e, tank)}
-      onDoubleClick={() => onEdit(tank)}
-      style={dragStyle}
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit(tank); }}
+      style={style}
       className={`
-        relative group flex flex-col items-center w-36 transition-transform duration-75 ease-out justify-self-center select-none
-        ${isDragging ? 'scale-110 opacity-90' : 'hover:scale-105 cursor-grab active:cursor-grabbing'}
+        relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
+        ${isDragging ? 'scale-110 opacity-90 shadow-2xl' : 'hover:scale-105 cursor-grab active:cursor-grabbing'}
       `}
     >
       {/* Conflict Indicator Badge */}
       {conflictType && !isDragging && (
-        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg z-50 whitespace-nowrap">
+        <div className={`absolute -top-6 left-1/2 transform -translate-x-1/2 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg z-50 whitespace-nowrap
+          ${conflictType === 'overlap' ? 'bg-red-600' : 'bg-orange-600'}
+        `}>
           <AlertTriangle size={10} />
           {conflictType === 'overlap' ? 'OVERLAP' : 'BLOCKING LINE'}
         </div>
@@ -124,7 +131,7 @@ const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddT
 
   return (
     <div
-      id={`tier-${tier.id}`} // ID used for drag detection
+      id={`tier-${tier.id}`}
       data-tier-id={tier.id}
       className={`flex relative min-h-[180px] border-b border-gray-800/50 last:border-0 group/tier transition-colors duration-200
         ${isTargetTier && draggingState.isDragging ? 'bg-blue-900/10' : 'hover:bg-gray-900/20'}
@@ -146,13 +153,26 @@ const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddT
       {/* Grid Area */}
       <div className="relative flex-1">
         <div
-          className="grid items-center p-4 h-full"
+          className="grid items-center p-4 h-full relative"
           style={{
             gridTemplateColumns: `repeat(${gridColumns}, ${COLUMN_WIDTH}px)`,
             width: 'max-content',
             gap: '0'
           }}
         >
+          {/* GHOST CELL */}
+          {draggingState.isDragging && isTargetTier && (
+            <div
+              className="absolute border-2 border-dashed border-yellow-500/50 bg-yellow-500/10 rounded-lg w-36 h-32 flex items-center justify-center text-yellow-500/50 font-bold text-xs uppercase animate-pulse transition-all duration-100 ease-linear"
+              style={{
+                left: `${(draggingState.targetCol * COLUMN_WIDTH) + 16 + (COLUMN_WIDTH - TANK_WIDTH) / 2}px`,
+                top: '16px'
+              }}
+            >
+              Drop Here
+            </div>
+          )}
+
           {tanks.map(tank => {
             const isDraggingThis = draggingState.isDragging && draggingState.tankId === tank.id;
 
@@ -164,10 +184,9 @@ const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddT
                 onSelect={onSelectTank}
                 onEdit={onEditTank}
                 onDelete={onDeleteTank}
-                getRef={registerTankRef}
+                setRef={(el) => registerTankRef(tank.id, el)}
                 onMouseDown={dragHandler}
                 isDragging={isDraggingThis}
-                dragPosition={draggingState.currentPos}
                 conflictType={conflicts[tank.id]}
               />
             );
@@ -178,43 +197,27 @@ const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddT
   );
 };
 
-/**
- * Helper: Check if value C is between A and B
- */
+// ... [Intersect Helper Functions] ...
 const isBetween = (c, a, b) => {
   return (c >= a && c <= b) || (c >= b && c <= a);
 };
 
-/**
- * Helper: Check if two orthogonal segments intersect
- * Segment 1: p0 -> p1
- * Segment 2: p2 -> p3
- */
 const doSegmentsIntersect = (p0, p1, p2, p3) => {
-  // Define bounding boxes
   const minX1 = Math.min(p0.x, p1.x), maxX1 = Math.max(p0.x, p1.x);
   const minY1 = Math.min(p0.y, p1.y), maxY1 = Math.max(p0.y, p1.y);
   const minX2 = Math.min(p2.x, p3.x), maxX2 = Math.max(p2.x, p3.x);
   const minY2 = Math.min(p2.y, p3.y), maxY2 = Math.max(p2.y, p3.y);
 
-  // Quick bounding box rejection
   if (maxX1 < minX2 || minX1 > maxX2 || maxY1 < minY2 || minY1 > maxY2) return false;
 
-  // Determine orientation
   const isHorz1 = p0.y === p1.y;
   const isHorz2 = p2.y === p3.y;
 
-  // Parallel lines overlap check (we ignore simple overlaps for "crossing", only want cuts)
   if (isHorz1 === isHorz2) return false;
 
-  // Perpendicular check (The only case that makes a "Cross" shape)
-  // One is vertical, one is horizontal
   if (isHorz1) {
-    // Seg1 is Horizontal, Seg2 is Vertical
-    // Intersection happens if Seg2.x is within Seg1 x-range AND Seg1.y is within Seg2 y-range
     return isBetween(p2.x, p0.x, p1.x) && isBetween(p0.y, p2.y, p3.y);
   } else {
-    // Seg1 is Vertical, Seg2 is Horizontal
     return isBetween(p0.x, p2.x, p3.x) && isBetween(p2.y, p0.y, p1.y);
   }
 };
@@ -235,66 +238,60 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
 
       let missingRefs = false;
 
-      // 1. Calculate Coordinates
       tanks.forEach(tank => {
-        if (!tank.parentId) return;
+        if (!tank.parentIds || tank.parentIds.length === 0) return;
 
-        // Hide lines for dragged tank
-        if (draggingState.isDragging && (tank.id === draggingState.tankId || tank.parentId === draggingState.tankId)) {
-          return;
-        }
+        tank.parentIds.forEach(parentId => {
+          if (draggingState.isDragging && (tank.id === draggingState.tankId || parentId === draggingState.tankId)) {
+            return;
+          }
 
-        const parentEl = tankRefs.current[tank.parentId];
-        const childEl = tankRefs.current[tank.id];
+          const parentEl = tankRefs.current[parentId];
+          const childEl = tankRefs.current[tank.id];
 
-        if (parentEl && childEl) {
-          const parentRect = parentEl.getBoundingClientRect();
-          const childRect = childEl.getBoundingClientRect();
+          if (parentEl && childEl) {
+            const parentRect = parentEl.getBoundingClientRect();
+            const childRect = childEl.getBoundingClientRect();
 
-          const startX = (parentRect.left + parentRect.width / 2) - containerRect.left + scrollLeft;
-          const startY = (parentRect.bottom) - containerRect.top + scrollTop;
+            const startX = (parentRect.left + parentRect.width / 2) - containerRect.left + scrollLeft;
+            const startY = (parentRect.bottom) - containerRect.top + scrollTop;
 
-          const endX = (childRect.left + childRect.width / 2) - containerRect.left + scrollLeft;
-          const endY = (childRect.top) - containerRect.top + scrollTop;
+            const endX = (childRect.left + childRect.width / 2) - containerRect.left + scrollLeft;
+            const endY = (childRect.top) - containerRect.top + scrollTop;
 
-          const midY = (startY + endY) / 2;
+            const midY = (startY + endY) / 2;
 
-          // Define the 3 segments of a Tech Tree line (Vertical -> Horizontal -> Vertical)
-          // Point A: Start
-          // Point B: (StartX, MidY)
-          // Point C: (EndX, MidY)
-          // Point D: End
+            const segments = [
+              { p1: { x: startX, y: startY }, p2: { x: startX, y: midY } },
+              { p1: { x: startX, y: midY }, p2: { x: endX, y: midY } },
+              { p1: { x: endX, y: midY }, p2: { x: endX, y: endY } }
+            ];
 
-          const segments = [
-            { p1: { x: startX, y: startY }, p2: { x: startX, y: midY } }, // Top Vertical
-            { p1: { x: startX, y: midY }, p2: { x: endX, y: midY } }, // Horizontal Middle
-            { p1: { x: endX, y: midY }, p2: { x: endX, y: endY } }  // Bottom Vertical
-          ];
-
-          newLines.push({
-            id: `${tank.parentId}-${tank.id}`,
-            startX, startY, endX, endY, midY,
-            segments
-          });
-        } else {
-          missingRefs = true;
-        }
+            newLines.push({
+              id: `${parentId}-${tank.id}`,
+              parentId: parentId,
+              childId: tank.id, // Store childId to detect convergence
+              startX, startY, endX, endY, midY,
+              segments
+            });
+          } else {
+            missingRefs = true;
+          }
+        });
       });
 
-      // 2. Detect Crossings (O(N^2) - cheap for <100 items)
       const crossings = new Set();
-
       for (let i = 0; i < newLines.length; i++) {
         for (let j = i + 1; j < newLines.length; j++) {
           const lineA = newLines[i];
           const lineB = newLines[j];
 
-          // Don't check lines sharing a parent (they naturally overlap at the start, which is fine)
-          const parentA = lineA.id.split('-')[0];
-          const parentB = lineB.id.split('-')[0];
-          if (parentA === parentB) continue;
+          // 1. Ignore if they share a Parent (diverging lines)
+          if (lineA.parentId === lineB.parentId) continue;
 
-          // Check intersection between any segments
+          // 2. Ignore if they share a Child (converging lines - merged endpoints)
+          if (lineA.childId === lineB.childId) continue;
+
           let intersected = false;
           for (let segA of lineA.segments) {
             for (let segB of lineB.segments) {
@@ -336,16 +333,13 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
       </defs>
       {lines.map(line => {
         const isCrossed = crossingIds.has(line.id);
-        const color = isCrossed ? "#EF4444" : "#4B5563"; // Red if crossed, Gray if safe
+        const color = isCrossed ? "#EF4444" : "#4B5563";
         const marker = isCrossed ? "url(#arrowhead-red)" : "url(#arrowhead-gray)";
         const width = isCrossed ? "3" : "2";
-
-        // Orthogonal Path: Move -> Vertical -> Horizontal -> Vertical
         const path = `M ${line.startX} ${line.startY} V ${line.midY} H ${line.endX} V ${line.endY}`;
 
         return (
           <g key={line.id}>
-            {/* Background stroke for better visibility against backgrounds */}
             <path d={path} stroke="#111827" strokeWidth="4" fill="none" opacity="0.5" />
             <path
               d={path}
@@ -353,7 +347,7 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
               strokeWidth={width}
               fill="none"
               markerEnd={marker}
-              strokeDasharray={isCrossed ? "5,3" : "0"} // Dashed line if error
+              strokeDasharray={isCrossed ? "5,3" : "0"}
               className="transition-colors duration-300"
             />
           </g>
@@ -371,36 +365,49 @@ export default function TankTreeArchitect() {
   ]);
 
   const [tanks, setTanks] = useState([
-    { id: 't1', name: 'MS-1', tierId: 'tier-1', image: null, parentId: null, classType: 'LT', xpCost: 0, columnIndex: 2 },
-    { id: 't2', name: 'T-26', tierId: 'tier-2', image: null, parentId: 't1', classType: 'LT', xpCost: 150, columnIndex: 2 },
+    { id: 't1', name: 'MS-1', tierId: 'tier-1', image: null, parentIds: [], classType: 'LT', xpCost: 0, columnIndex: 2 },
+    { id: 't2', name: 'T-26', tierId: 'tier-2', image: null, parentIds: ['t1'], classType: 'LT', xpCost: 150, columnIndex: 2 },
   ]);
 
   const [selectedTankId, setSelectedTankId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Drag State
+  // Sidebar Menu States
+  const [isParentMenuOpen, setIsParentMenuOpen] = useState(false);
+  const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
+
   const [draggingState, setDraggingState] = useState({
-    isPressed: false, // Mouse is down but hasn't moved enough
-    isDragging: false, // Mouse moved enough, dragging active
+    isPressed: false,
+    isDragging: false,
     tankId: null,
-    startMouseX: 0,
-    startMouseY: 0,
-    elemOffsetX: 0, // Distance from mouse to top-left of element
-    elemOffsetY: 0,
-    currentPos: { x: 0, y: 0 },
-    currentTierId: null
+    currentTierId: null,
+    targetCol: 0
   });
 
   const tankRefs = useRef({});
   const containerRef = useRef(null);
+  const dragItemRef = useRef(null);
+
+  const dragData = useRef({
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+    tankId: null,
+    currentTierId: null,
+    targetCol: 0,
+    hasMoved: false
+  });
 
   const maxColumnIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridColumns = Math.max(maxColumnIndex + 6, 8);
 
-  // --- Real-time Conflict Detection (Memoized) ---
+  // --- Real-time Conflict Detection (Including Horizontal Line Obscurity) ---
   const conflicts = useMemo(() => {
     const conflictsMap = {};
     const posMap = new Map();
+
+    // 1. Detect Direct Overlaps (Same cell)
     tanks.forEach(t => {
       const key = `${t.tierId}-${t.columnIndex}`;
       if (!posMap.has(key)) posMap.set(key, []);
@@ -411,133 +418,187 @@ export default function TankTreeArchitect() {
       if (ids.length > 1) ids.forEach(id => conflictsMap[id] = 'overlap');
     });
 
+    // 2. Detect Line Blockers
     const getTierIdx = (tid) => tiers.find(x => x.id === tid)?.index ?? -1;
+
     tanks.forEach(child => {
-      if (!child.parentId) return;
-      const parent = tanks.find(t => t.id === child.parentId);
-      if (!parent || child.columnIndex !== parent.columnIndex) return;
+      if (!child.parentIds || child.parentIds.length === 0) return;
 
-      const pIdx = getTierIdx(parent.tierId);
-      const cIdx = getTierIdx(child.tierId);
-      const minIdx = Math.min(pIdx, cIdx);
-      const maxIdx = Math.max(pIdx, cIdx);
+      child.parentIds.forEach(parentId => {
+        const parent = tanks.find(t => t.id === parentId);
+        if (!parent) return;
 
-      tanks.forEach(blocker => {
-        if (blocker.id === child.id || blocker.id === parent.id) return;
-        if (blocker.columnIndex !== child.columnIndex) return;
-        const bIdx = getTierIdx(blocker.tierId);
-        if (bIdx > minIdx && bIdx < maxIdx) conflictsMap[blocker.id] = 'blocker';
+        const pIdx = getTierIdx(parent.tierId);
+        const cIdx = getTierIdx(child.tierId);
+        const minIdx = Math.min(pIdx, cIdx);
+        const maxIdx = Math.max(pIdx, cIdx);
+
+        // Grid coordinates for the connection
+        const pCol = parent.columnIndex || 0;
+        const cCol = child.columnIndex || 0;
+        const minCol = Math.min(pCol, cCol);
+        const maxCol = Math.max(pCol, cCol);
+
+        // Find potential blockers
+        tanks.forEach(blocker => {
+          if (blocker.id === child.id || blocker.id === parent.id) return;
+
+          const bIdx = getTierIdx(blocker.tierId);
+          const bCol = blocker.columnIndex || 0;
+
+          // Only check if blocker is in a tier STRICTLY between parent and child
+          // because the horizontal connection line runs through the "middle" of the intermediate tiers
+          if (bIdx > minIdx && bIdx < maxIdx) {
+
+            // Vertical Segment Block (same column as Parent OR Child, and line is vertical-ish there)
+            // But simplifying: A tank blocks if it is in the range of columns spanned by the line.
+
+            // Case A: Vertical Line (Parent and Child in same column)
+            if (pCol === cCol && bCol === pCol) {
+              conflictsMap[blocker.id] = 'blocker';
+            }
+
+            // Case B: Horizontal Segment Block
+            // The horizontal segment runs at the midpoint between tiers.
+            // In a visual grid, this effectively "cuts through" the tanks in the intermediate tiers.
+            // If the blocker is in a column strictly between start and end column, it blocks the horizontal line.
+            else if (bCol >= minCol && bCol <= maxCol) {
+              conflictsMap[blocker.id] = 'blocker';
+            }
+          }
+        });
       });
     });
 
     return conflictsMap;
   }, [tanks, tiers]);
 
-  // --- Drag & Drop Logic ---
+  // --- Logic ---
 
   const handleDragStart = (e, tank) => {
-    e.preventDefault();
-    if (!tankRefs.current[tank.id]) return;
+    e.stopPropagation();
 
-    const rect = tankRefs.current[tank.id].getBoundingClientRect();
+    const el = tankRefs.current[tank.id];
+    if (!el) return;
 
-    // Calculate the offset so the element doesn't jump to top-left
-    const offsetX = e.clientX - rect.left;
-    const offsetY = e.clientY - rect.top;
+    const rect = el.getBoundingClientRect();
 
-    setDraggingState({
-      isPressed: true,
-      isDragging: false,
+    dragData.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
       tankId: tank.id,
-      startMouseX: e.clientX,
-      startMouseY: e.clientY,
-      elemOffsetX: offsetX,
-      elemOffsetY: offsetY,
-      currentPos: { x: rect.left, y: rect.top },
-      currentTierId: tank.tierId
-    });
+      currentTierId: tank.tierId,
+      targetCol: tank.columnIndex,
+      hasMoved: false
+    };
+
+    dragItemRef.current = el;
 
     window.addEventListener('mousemove', handleDragMove);
     window.addEventListener('mouseup', handleDragEnd);
   };
 
   const handleDragMove = (e) => {
-    setDraggingState(prev => {
-      if (!prev.isPressed) return prev;
+    if (!dragData.current.hasMoved) {
+      const dist = Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY);
+      if (dist < 5) return;
 
-      // Check distance threshold to prevent click accidental drags
-      if (!prev.isDragging) {
-        const dist = Math.sqrt(
-          Math.pow(e.clientX - prev.startMouseX, 2) +
-          Math.pow(e.clientY - prev.startMouseY, 2)
-        );
-        if (dist < 5) return prev; // Ignore small movements
+      dragData.current.hasMoved = true;
+
+      if (dragItemRef.current) {
+        dragItemRef.current.style.position = 'fixed';
+        dragItemRef.current.style.zIndex = 1000;
+        dragItemRef.current.style.pointerEvents = 'none';
+        dragItemRef.current.style.width = `${TANK_WIDTH}px`;
+        const initialX = e.clientX - dragData.current.offsetX;
+        const initialY = e.clientY - dragData.current.offsetY;
+        dragItemRef.current.style.left = `${initialX}px`;
+        dragItemRef.current.style.top = `${initialY}px`;
       }
 
-      // Calculate exact position based on mouse - offset
-      const newX = e.clientX - prev.elemOffsetX;
-      const newY = e.clientY - prev.elemOffsetY;
-
-      // Detect tier under cursor
-      const elementsUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
-      const tierEl = elementsUnderCursor.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
-      const newTierId = tierEl ? tierEl.getAttribute('data-tier-id') : prev.currentTierId;
-
-      return {
-        ...prev,
+      setDraggingState({
+        isPressed: true,
         isDragging: true,
-        currentPos: { x: newX, y: newY },
-        currentTierId: newTierId
-      };
-    });
+        tankId: dragData.current.tankId,
+        currentTierId: dragData.current.currentTierId,
+        targetCol: dragData.current.targetCol
+      });
+    }
+
+    if (dragData.current.hasMoved && dragItemRef.current) {
+      const x = e.clientX - dragData.current.offsetX;
+      const y = e.clientY - dragData.current.offsetY;
+
+      dragItemRef.current.style.left = `${x}px`;
+      dragItemRef.current.style.top = `${y}px`;
+
+      if (containerRef.current) {
+        let newTierId = dragData.current.currentTierId;
+        let newCol = dragData.current.targetCol;
+
+        const elementsUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
+        const tierEl = elementsUnderCursor.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
+        if (tierEl) newTierId = tierEl.getAttribute('data-tier-id');
+
+        const containerRect = containerRef.current.getBoundingClientRect();
+        const scrollLeft = containerRef.current.scrollLeft;
+        const itemCenterX = (e.clientX - dragData.current.offsetX) + (TANK_WIDTH / 2);
+        const relativeX = itemCenterX - containerRect.left + scrollLeft;
+
+        newCol = Math.floor(relativeX / COLUMN_WIDTH);
+        if (newCol < 0) newCol = 0;
+
+        if (newTierId !== dragData.current.currentTierId || newCol !== dragData.current.targetCol) {
+          dragData.current.currentTierId = newTierId;
+          dragData.current.targetCol = newCol;
+
+          setDraggingState(prev => ({
+            ...prev,
+            currentTierId: newTierId,
+            targetCol: newCol
+          }));
+        }
+      }
+    }
   };
 
   const handleDragEnd = () => {
-    setDraggingState(prev => {
-      if (!prev.isPressed) return prev;
+    if (dragData.current.hasMoved) {
+      setTanks(currTanks => currTanks.map(t =>
+        t.id === dragData.current.tankId
+          ? { ...t, columnIndex: dragData.current.targetCol, tierId: dragData.current.currentTierId }
+          : t
+      ));
+    } else {
+      setSelectedTankId(dragData.current.tankId);
+      setIsSidebarOpen(true);
+      setIsParentMenuOpen(false);
+      setIsChildMenuOpen(false);
+    }
 
-      if (!prev.isDragging) {
-        // It was a simple click!
-        setSelectedTankId(prev.tankId);
-      } else {
-        // It was a drag, execute Drop
-        if (containerRef.current) {
-          const containerRect = containerRef.current.getBoundingClientRect();
-          // Calculate column based on relative X position + scroll
-          const relativeX = (prev.currentPos.x + prev.elemOffsetX) - containerRect.left + containerRef.current.scrollLeft;
-          // Center point of the dragged item for snap calculation
-          const centerX = relativeX + 72; // half of w-36 (144px)
-
-          let newCol = Math.floor(centerX / COLUMN_WIDTH);
-          if (newCol < 0) newCol = 0;
-
-          setTanks(currTanks => currTanks.map(t =>
-            t.id === prev.tankId
-              ? { ...t, columnIndex: newCol, tierId: prev.currentTierId }
-              : t
-          ));
-        }
-      }
-
-      return {
-        isPressed: false,
-        isDragging: false,
-        tankId: null,
-        startMouseX: 0,
-        startMouseY: 0,
-        elemOffsetX: 0,
-        elemOffsetY: 0,
-        currentPos: { x: 0, y: 0 },
-        currentTierId: null
-      };
+    setDraggingState({
+      isPressed: false,
+      isDragging: false,
+      tankId: null,
+      currentTierId: null,
+      targetCol: 0
     });
+
+    if (dragItemRef.current) {
+      dragItemRef.current.style.left = '';
+      dragItemRef.current.style.top = '';
+      dragItemRef.current.style.position = '';
+      dragItemRef.current.style.zIndex = '';
+      dragItemRef.current.style.width = '';
+      dragItemRef.current = null;
+    }
 
     window.removeEventListener('mousemove', handleDragMove);
     window.removeEventListener('mouseup', handleDragEnd);
   };
 
-  // --- CRUD & Helpers ---
-  // Double touch/click action
   const handleEditTank = (tank) => {
     setSelectedTankId(tank.id);
     setIsSidebarOpen(true);
@@ -556,14 +617,17 @@ export default function TankTreeArchitect() {
       col++;
     }
     const newTank = {
-      id: generateId(), name: 'New Tank', tierId: tierId, image: null, parentId: null, classType: 'LT', xpCost: 0, columnIndex: col
+      id: generateId(), name: 'New Tank', tierId: tierId, image: null, parentIds: [], classType: 'LT', xpCost: 0, columnIndex: col
     };
     setTanks([...tanks, newTank]);
-    handleEditTank(newTank); // Auto open edit on create
+    handleEditTank(newTank);
   };
 
   const handleDeleteTank = (id) => {
-    setTanks(tanks.filter(t => t.id !== id && t.parentId !== id));
+    setTanks(tanks.filter(t => t.id !== id).map(t => ({
+      ...t,
+      parentIds: t.parentIds.filter(pid => pid !== id)
+    })));
     if (selectedTankId === id) setSelectedTankId(null);
     delete tankRefs.current[id];
   };
@@ -578,13 +642,33 @@ export default function TankTreeArchitect() {
 
   const updateTank = (id, field, value) => {
     let tempTanks = tanks.map(t => t.id === id ? { ...t, [field]: value } : t);
-    if (field === 'parentId' && value) {
-      const parentTank = tanks.find(t => t.id === value);
-      if (parentTank) {
-        tempTanks = tempTanks.map(t => t.id === id ? { ...t, columnIndex: parentTank.columnIndex } : t);
-      }
-    }
     setTanks(tempTanks);
+  };
+
+  const toggleParent = (tankId, parentId) => {
+    setTanks(currTanks => currTanks.map(t => {
+      if (t.id !== tankId) return t;
+      const currentParents = t.parentIds || [];
+      if (currentParents.includes(parentId)) {
+        return { ...t, parentIds: currentParents.filter(id => id !== parentId) };
+      } else {
+        return { ...t, parentIds: [...currentParents, parentId] };
+      }
+    }));
+    setIsParentMenuOpen(false);
+  };
+
+  const toggleChild = (currentTankId, targetChildId) => {
+    setTanks(currTanks => currTanks.map(t => {
+      if (t.id !== targetChildId) return t;
+      const currentParents = t.parentIds || [];
+      if (currentParents.includes(currentTankId)) {
+        return { ...t, parentIds: currentParents.filter(id => id !== currentTankId) };
+      } else {
+        return { ...t, parentIds: [...currentParents, currentTankId] };
+      }
+    }));
+    setIsChildMenuOpen(false);
   };
 
   const handleImageUpload = (e) => {
@@ -597,6 +681,7 @@ export default function TankTreeArchitect() {
   };
 
   const selectedTank = tanks.find(t => t.id === selectedTankId);
+
   const availableParents = selectedTank
     ? tanks.filter(t => {
       const currentTierIndex = tiers.find(tier => tier.id === selectedTank.tierId)?.index || 0;
@@ -605,11 +690,22 @@ export default function TankTreeArchitect() {
     })
     : [];
 
+  const currentChildren = selectedTank
+    ? tanks.filter(t => t.parentIds && t.parentIds.includes(selectedTank.id))
+    : [];
+
+  const availableChildren = selectedTank
+    ? tanks.filter(t => {
+      const currentTierIndex = tiers.find(tier => tier.id === selectedTank.tierId)?.index || 0;
+      const candidateTierIndex = tiers.find(tier => tier.id === t.tierId)?.index || 0;
+      return candidateTierIndex > currentTierIndex;
+    })
+    : [];
+
   const conflictCount = Object.keys(conflicts).length;
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-200 font-sans overflow-hidden select-none">
-      {/* Sidebar */}
       <div className={`flex-shrink-0 bg-gray-900 border-r border-gray-800 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-80' : 'w-0'}`}>
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <h2 className="font-bold text-lg text-yellow-500 flex items-center gap-2">
@@ -623,6 +719,7 @@ export default function TankTreeArchitect() {
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {selectedTank ? (
             <>
+              {/* Image */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase">Tank Preview</label>
                 <div className="h-32 w-full border-2 border-dashed border-gray-700 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-yellow-500 hover:bg-gray-800 transition-colors relative overflow-hidden group" onClick={() => document.getElementById('tank-image-upload').click()}>
@@ -632,6 +729,7 @@ export default function TankTreeArchitect() {
                 </div>
               </div>
 
+              {/* Grid Pos */}
               <div className="p-3 bg-gray-800/50 rounded border border-gray-800">
                 <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2 mb-2">
                   <MoveHorizontal size={12} /> Grid Position
@@ -643,6 +741,7 @@ export default function TankTreeArchitect() {
                 </div>
               </div>
 
+              {/* Details */}
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className="text-xs text-gray-500">Name</label>
@@ -666,14 +765,118 @@ export default function TankTreeArchitect() {
                 </div>
               </div>
 
+              {/* Parents Section */}
               <div className="space-y-2 pt-4 border-t border-gray-800">
-                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2"><Network size={12} /> Research Path</label>
-                <select value={selectedTank.parentId || ''} onChange={(e) => updateTank(selectedTank.id, 'parentId', e.target.value === '' ? null : e.target.value)} className="w-full bg-gray-950 border border-gray-700 rounded p-2 text-sm focus:border-yellow-500 focus:outline-none">
-                  <option value="">-- No Parent (Root) --</option>
-                  {availableParents.map(p => (
-                    <option key={p.id} value={p.id}>Tier {tiers.find(tr => tr.id === p.tierId)?.roman} - {p.name}</option>
-                  ))}
-                </select>
+                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2">
+                  <Network size={12} /> Research Parents (From)
+                </label>
+
+                <div className="space-y-2 mb-3">
+                  {selectedTank.parentIds && selectedTank.parentIds.length > 0 ? (
+                    selectedTank.parentIds.map(pid => {
+                      const pTank = tanks.find(t => t.id === pid);
+                      if (!pTank) return null;
+                      return (
+                        <div key={pid} className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700 text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                            <span>{pTank.name}</span>
+                            <span className="text-xs text-gray-500">(Tier {tiers.find(tr => tr.id === pTank.tierId)?.roman})</span>
+                          </div>
+                          <button onClick={() => toggleParent(selectedTank.id, pid)} className="text-gray-500 hover:text-red-400">
+                            <Unlink size={14} />
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-xs text-gray-500 italic p-2 border border-dashed border-gray-800 rounded">No parent tanks linked.</div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button
+                    onClick={() => { setIsParentMenuOpen(!isParentMenuOpen); setIsChildMenuOpen(false); }}
+                    className="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <LinkIcon size={12} /> Link Parent Tank
+                    <ChevronDown size={12} className={`transition-transform ${isParentMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isParentMenuOpen && (
+                    <div className="absolute left-0 right-0 bottom-full mb-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded shadow-xl z-50">
+                      {availableParents.length === 0 && <div className="p-2 text-xs text-gray-500">No available parents in lower tiers.</div>}
+                      {availableParents.map(p => {
+                        const isLinked = selectedTank.parentIds.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => toggleParent(selectedTank.id, p.id)}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-800 ${isLinked ? 'bg-blue-900/20' : ''}`}
+                          >
+                            <span>{p.name} <span className="text-gray-500">- T{tiers.find(tr => tr.id === p.tierId)?.roman}</span></span>
+                            {isLinked && <span className="text-blue-500 text-[10px]">LINKED</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Children Section */}
+              <div className="space-y-2 pt-4 border-t border-gray-800">
+                <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2">
+                  <ArrowDownCircle size={12} /> Tech Tree Children (To)
+                </label>
+
+                <div className="space-y-2 mb-3">
+                  {currentChildren.length > 0 ? (
+                    currentChildren.map(child => (
+                      <div key={child.id} className="flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700 text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          <span>{child.name}</span>
+                          <span className="text-xs text-gray-500">(Tier {tiers.find(tr => tr.id === child.tierId)?.roman})</span>
+                        </div>
+                        <button onClick={() => toggleChild(selectedTank.id, child.id)} className="text-gray-500 hover:text-red-400">
+                          <Unlink size={14} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500 italic p-2 border border-dashed border-gray-800 rounded">No children (end of line).</div>
+                  )}
+                </div>
+
+                <div className="relative">
+                  <button
+                    onClick={() => { setIsChildMenuOpen(!isChildMenuOpen); setIsParentMenuOpen(false); }}
+                    className="w-full py-2 bg-gray-800 hover:bg-gray-700 rounded border border-gray-700 text-xs flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <LinkIcon size={12} /> Link Child Tank
+                    <ChevronDown size={12} className={`transition-transform ${isChildMenuOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isChildMenuOpen && (
+                    <div className="absolute left-0 right-0 bottom-full mb-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded shadow-xl z-50">
+                      {availableChildren.length === 0 && <div className="p-2 text-xs text-gray-500">No available children in higher tiers.</div>}
+                      {availableChildren.map(c => {
+                        const isLinked = c.parentIds && c.parentIds.includes(selectedTank.id);
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => toggleChild(selectedTank.id, c.id)}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-gray-800 ${isLinked ? 'bg-green-900/20' : ''}`}
+                          >
+                            <span>{c.name} <span className="text-gray-500">- T{tiers.find(tr => tr.id === c.tierId)?.roman}</span></span>
+                            {isLinked && <span className="text-green-500 text-[10px]">LINKED</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="pt-6 mt-auto">
@@ -732,7 +935,6 @@ export default function TankTreeArchitect() {
                 />
               ))}
 
-              {/* Added: 'Add Tier' Button at the bottom of the list */}
               <div className="w-full flex items-center justify-center py-6">
                 <button
                   onClick={handleAddTier}
