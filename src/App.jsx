@@ -34,6 +34,7 @@ const TANK_WIDTH = 144; // w-36
 const TankCard = ({
   tank,
   isSelected,
+  isHighlighted, // NEW: Prop for branch highlighting
   onEdit,
   onDelete,
   onMouseDown,
@@ -45,6 +46,15 @@ const TankCard = ({
   // Conflict Styles
   let borderClass = isSelected ? 'border-yellow-500 shadow-yellow-500/20' : 'border-gray-600 hover:border-gray-400';
   let bgClass = "bg-gray-800";
+
+  // NEW: Highlight Logic
+  if (isHighlighted && !isSelected) {
+    borderClass = 'border-yellow-500/50 shadow-yellow-500/10';
+    bgClass = "bg-yellow-900/10";
+  } else if (!isHighlighted && !isSelected) {
+    // Dim unrelated tanks slightly if something is selected
+    bgClass = "bg-gray-800 opacity-60";
+  }
 
   if (conflictType === 'overlap') {
     borderClass = 'border-red-500 shadow-red-500/40 animate-pulse';
@@ -58,7 +68,7 @@ const TankCard = ({
   const style = {
     gridColumnStart: (tank.columnIndex || 0) + 1,
     gridRowStart: 1,
-    zIndex: isSelected ? 20 : 10,
+    zIndex: isSelected ? 20 : (isHighlighted ? 15 : 10), // Highlighted tanks sit above regular ones
   };
 
   // If Dragging: Fixed position, high Z-index, ignore pointer events
@@ -126,7 +136,7 @@ const TankCard = ({
   );
 };
 
-const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddTank, onDeleteTank, onDeleteTier, registerTankRef, gridColumns, dragHandler, draggingState, conflicts }) => {
+const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, highlightedIds, onAddTank, onDeleteTank, onDeleteTier, registerTankRef, gridColumns, dragHandler, draggingState, conflicts }) => {
   const isTargetTier = draggingState.currentTierId === tier.id;
 
   return (
@@ -175,12 +185,15 @@ const TierRow = ({ tier, tanks, onSelectTank, onEditTank, selectedTankId, onAddT
 
           {tanks.map(tank => {
             const isDraggingThis = draggingState.isDragging && draggingState.tankId === tank.id;
+            // Check if this tank is part of the highlighted branch
+            const isHighlighted = highlightedIds && highlightedIds.has(tank.id);
 
             return (
               <TankCard
                 key={tank.id}
                 tank={tank}
                 isSelected={selectedTankId === tank.id}
+                isHighlighted={isHighlighted}
                 onSelect={onSelectTank}
                 onEdit={onEditTank}
                 onDelete={onDeleteTank}
@@ -222,7 +235,7 @@ const doSegmentsIntersect = (p0, p1, p2, p3) => {
   }
 };
 
-const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
+const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState, highlightedIds }) => {
   const [lines, setLines] = useState([]);
   const [crossingIds, setCrossingIds] = useState(new Set());
   const [retry, setRetry] = useState(0);
@@ -231,10 +244,13 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
     const animationFrameId = requestAnimationFrame(() => {
       if (!containerRef.current) return;
 
-      const newLines = [];
+      const rawLines = [];
       const containerRect = containerRef.current.getBoundingClientRect();
       const scrollLeft = containerRef.current.scrollLeft;
       const scrollTop = containerRef.current.scrollTop;
+
+      // OPTIMIZATION: Create a map for fast parent lookups
+      const tankMap = new Map(tanks.map(t => [t.id, t]));
 
       let missingRefs = false;
 
@@ -248,8 +264,9 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
 
           const parentEl = tankRefs.current[parentId];
           const childEl = tankRefs.current[tank.id];
+          const parentTank = tankMap.get(parentId);
 
-          if (parentEl && childEl) {
+          if (parentEl && childEl && parentTank) {
             const parentRect = parentEl.getBoundingClientRect();
             const childRect = childEl.getBoundingClientRect();
 
@@ -259,20 +276,18 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
             const endX = (childRect.left + childRect.width / 2) - containerRect.left + scrollLeft;
             const endY = (childRect.top) - containerRect.top + scrollTop;
 
+            // Initial midY estimate (halfway between tiers)
             const midY = (startY + endY) / 2;
 
-            const segments = [
-              { p1: { x: startX, y: startY }, p2: { x: startX, y: midY } },
-              { p1: { x: startX, y: midY }, p2: { x: endX, y: midY } },
-              { p1: { x: endX, y: midY }, p2: { x: endX, y: endY } }
-            ];
-
-            newLines.push({
+            rawLines.push({
               id: `${parentId}-${tank.id}`,
               parentId: parentId,
-              childId: tank.id, // Store childId to detect convergence
-              startX, startY, endX, endY, midY,
-              segments
+              childId: tank.id,
+              startX, startY, endX, endY,
+              midY: midY,
+              // CRITICAL FIX: Group by Tier ID, not pixel height. 
+              // This ensures all parents in this tier coordinate their spacing.
+              tierGapId: parentTank.tierId,
             });
           } else {
             missingRefs = true;
@@ -280,16 +295,66 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
         });
       });
 
+      // --- LOGIC: Merge Same-Parent Lines, Stagger Different-Parent Lines ---
+
+      // 1. Group by Tier Gap (The "Channel" between rows)
+      const gapGroups = {};
+      rawLines.forEach(line => {
+        if (!gapGroups[line.tierGapId]) gapGroups[line.tierGapId] = [];
+        gapGroups[line.tierGapId].push(line);
+      });
+
+      const processedLines = [];
+      const GAP_OFFSET = 14; // Increased slightly for better visual separation
+
+      Object.values(gapGroups).forEach(group => {
+        // 2. Inside the channel, group by Parent ID (The "Bundle")
+        // All lines leaving Parent A travel together.
+        const parentBundles = {};
+        group.forEach(line => {
+          if (!parentBundles[line.parentId]) parentBundles[line.parentId] = [];
+          parentBundles[line.parentId].push(line);
+        });
+
+        const bundles = Object.values(parentBundles);
+
+        // 3. Sort bundles by the X position of the parent (Left to Right)
+        // This prevents crossing wires from looking chaotic
+        bundles.sort((a, b) => a[0].startX - b[0].startX);
+
+        const bundleCount = bundles.length;
+
+        bundles.forEach((bundle, index) => {
+          // 4. Calculate a unique offset for this ENTIRE bundle
+          // This "Splits vertical lines" for different parents
+          let offset = 0;
+          if (bundleCount > 1) {
+            offset = (index - (bundleCount - 1) / 2) * GAP_OFFSET;
+          }
+
+          // 5. Apply this offset to ALL lines in the bundle
+          bundle.forEach(line => {
+            line.midY += offset;
+
+            // Generate segments with the finalized midY
+            line.segments = [
+              { p1: { x: line.startX, y: line.startY }, p2: { x: line.startX, y: line.midY } },
+              { p1: { x: line.startX, y: line.midY }, p2: { x: line.endX, y: line.midY } },
+              { p1: { x: line.endX, y: line.midY }, p2: { x: line.endX, y: line.endY } }
+            ];
+            processedLines.push(line);
+          });
+        });
+      });
+
+      // Check for intersections (Crossings)
       const crossings = new Set();
-      for (let i = 0; i < newLines.length; i++) {
-        for (let j = i + 1; j < newLines.length; j++) {
-          const lineA = newLines[i];
-          const lineB = newLines[j];
+      for (let i = 0; i < processedLines.length; i++) {
+        for (let j = i + 1; j < processedLines.length; j++) {
+          const lineA = processedLines[i];
+          const lineB = processedLines[j];
 
-          // 1. Ignore if they share a Parent (diverging lines)
           if (lineA.parentId === lineB.parentId) continue;
-
-          // 2. Ignore if they share a Child (converging lines - merged endpoints)
           if (lineA.childId === lineB.childId) continue;
 
           let intersected = false;
@@ -310,7 +375,7 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
         }
       }
 
-      setLines(newLines);
+      setLines(processedLines);
       setCrossingIds(crossings);
 
       if (missingRefs && retry < 3) {
@@ -321,11 +386,15 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
     return () => cancelAnimationFrame(animationFrameId);
   }, [tanks, tankRefs, containerRef, draggingState.isDragging, retry, draggingState.tankId]);
 
+  // Render logic remains the same...
   return (
     <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-visible">
       <defs>
         <marker id="arrowhead-gray" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
           <polygon points="0 0, 10 3.5, 0 7" fill="#4B5563" />
+        </marker>
+        <marker id="arrowhead-gold" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+          <polygon points="0 0, 10 3.5, 0 7" fill="#EAB308" />
         </marker>
         <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
           <polygon points="0 0, 10 3.5, 0 7" fill="#EF4444" />
@@ -333,22 +402,41 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
       </defs>
       {lines.map(line => {
         const isCrossed = crossingIds.has(line.id);
-        const color = isCrossed ? "#EF4444" : "#4B5563";
-        const marker = isCrossed ? "url(#arrowhead-red)" : "url(#arrowhead-gray)";
-        const width = isCrossed ? "3" : "2";
+        const isHighlighted = highlightedIds && highlightedIds.has(line.parentId) && highlightedIds.has(line.childId);
+
+        let color = "#4B5563";
+        let marker = "url(#arrowhead-gray)";
+        let opacity = "0.3";
+        let strokeWidth = "2";
+        let zIndex = 0;
+
+        if (isCrossed) {
+          color = "#EF4444";
+          marker = "url(#arrowhead-red)";
+          opacity = "0.8";
+          strokeWidth = "3";
+        } else if (isHighlighted) {
+          color = "#EAB308";
+          marker = "url(#arrowhead-gold)";
+          opacity = "1";
+          strokeWidth = "3";
+          zIndex = 10;
+        }
+
         const path = `M ${line.startX} ${line.startY} V ${line.midY} H ${line.endX} V ${line.endY}`;
 
         return (
-          <g key={line.id}>
-            <path d={path} stroke="#111827" strokeWidth="4" fill="none" opacity="0.5" />
+          <g key={line.id} style={{ zIndex }}>
+            <path d={path} stroke="#0f172a" strokeWidth="6" fill="none" opacity={isHighlighted ? "0.8" : "0"} />
             <path
               d={path}
               stroke={color}
-              strokeWidth={width}
+              strokeWidth={strokeWidth}
               fill="none"
               markerEnd={marker}
               strokeDasharray={isCrossed ? "5,3" : "0"}
-              className="transition-colors duration-300"
+              opacity={opacity}
+              className="transition-all duration-300"
             />
           </g>
         );
@@ -357,7 +445,46 @@ const ConnectionLines = ({ tanks, tankRefs, containerRef, draggingState }) => {
   );
 };
 
+// NEW: Helper to find all Connected Nodes (Parents + Children Recursively)
+const getAllConnectedIds = (startId, allTanks) => {
+  if (!startId) return new Set();
+
+  const connected = new Set([startId]);
+  const tankMap = new Map(allTanks.map(t => [t.id, t]));
+
+  // 1. Traverse Upwards (Parents)
+  const queueUp = [startId];
+  while (queueUp.length) {
+    const currentId = queueUp.pop();
+    const tank = tankMap.get(currentId);
+    if (tank && tank.parentIds) {
+      tank.parentIds.forEach(pid => {
+        if (!connected.has(pid)) {
+          connected.add(pid);
+          queueUp.push(pid);
+        }
+      });
+    }
+  }
+
+  // 2. Traverse Downwards (Children)
+  // Since we don't store children explicitly, we iterate (fine for <500 items)
+  const queueDown = [startId];
+  while (queueDown.length) {
+    const currentId = queueDown.pop();
+    allTanks.forEach(t => {
+      if (t.parentIds && t.parentIds.includes(currentId) && !connected.has(t.id)) {
+        connected.add(t.id);
+        queueDown.push(t.id);
+      }
+    });
+  }
+
+  return connected;
+};
+
 export default function TankTreeArchitect() {
+  // ... (Keep existing state definitions: tiers, tanks, selectedTankId, etc.)
   const [tiers, setTiers] = useState([
     { id: 'tier-1', roman: 'I', index: 0 },
     { id: 'tier-2', roman: 'II', index: 1 },
@@ -372,10 +499,9 @@ export default function TankTreeArchitect() {
   const [selectedTankId, setSelectedTankId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Sidebar Menu States
+  // ... (Keep Sidebar Menu States and Drag States exactly as they were)
   const [isParentMenuOpen, setIsParentMenuOpen] = useState(false);
   const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
-
   const [draggingState, setDraggingState] = useState({
     isPressed: false,
     isDragging: false,
@@ -387,102 +513,68 @@ export default function TankTreeArchitect() {
   const tankRefs = useRef({});
   const containerRef = useRef(null);
   const dragItemRef = useRef(null);
-
   const dragData = useRef({
-    startX: 0,
-    startY: 0,
-    offsetX: 0,
-    offsetY: 0,
-    tankId: null,
-    currentTierId: null,
-    targetCol: 0,
-    hasMoved: false
+    startX: 0, startY: 0, offsetX: 0, offsetY: 0, tankId: null, currentTierId: null, targetCol: 0, hasMoved: false
   });
 
   const maxColumnIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridColumns = Math.max(maxColumnIndex + 6, 8);
 
-  // --- Real-time Conflict Detection (Including Horizontal Line Obscurity) ---
+  // --- NEW: Calculate Highlighted Branch ---
+  const highlightedIds = useMemo(() => {
+    return selectedTankId ? getAllConnectedIds(selectedTankId, tanks) : null;
+  }, [selectedTankId, tanks]);
+
+  // ... (Keep Conflicts Logic, Drag Logic, Edit Logic, Add/Delete Logic exactly as they were)
+  // [Paste previous conflicts logic here]
   const conflicts = useMemo(() => {
     const conflictsMap = {};
     const posMap = new Map();
-
-    // 1. Detect Direct Overlaps (Same cell)
     tanks.forEach(t => {
       const key = `${t.tierId}-${t.columnIndex}`;
       if (!posMap.has(key)) posMap.set(key, []);
       posMap.get(key).push(t.id);
     });
-
     posMap.forEach(ids => {
       if (ids.length > 1) ids.forEach(id => conflictsMap[id] = 'overlap');
     });
-
-    // 2. Detect Line Blockers
     const getTierIdx = (tid) => tiers.find(x => x.id === tid)?.index ?? -1;
-
     tanks.forEach(child => {
       if (!child.parentIds || child.parentIds.length === 0) return;
-
       child.parentIds.forEach(parentId => {
         const parent = tanks.find(t => t.id === parentId);
         if (!parent) return;
-
         const pIdx = getTierIdx(parent.tierId);
         const cIdx = getTierIdx(child.tierId);
         const minIdx = Math.min(pIdx, cIdx);
         const maxIdx = Math.max(pIdx, cIdx);
-
-        // Grid coordinates for the connection
         const pCol = parent.columnIndex || 0;
         const cCol = child.columnIndex || 0;
         const minCol = Math.min(pCol, cCol);
         const maxCol = Math.max(pCol, cCol);
-
-        // Find potential blockers
         tanks.forEach(blocker => {
           if (blocker.id === child.id || blocker.id === parent.id) return;
-
           const bIdx = getTierIdx(blocker.tierId);
           const bCol = blocker.columnIndex || 0;
-
-          // Only check if blocker is in a tier STRICTLY between parent and child
-          // because the horizontal connection line runs through the "middle" of the intermediate tiers
           if (bIdx > minIdx && bIdx < maxIdx) {
-
-            // Vertical Segment Block (same column as Parent OR Child, and line is vertical-ish there)
-            // But simplifying: A tank blocks if it is in the range of columns spanned by the line.
-
-            // Case A: Vertical Line (Parent and Child in same column)
             if (pCol === cCol && bCol === pCol) {
               conflictsMap[blocker.id] = 'blocker';
-            }
-
-            // Case B: Horizontal Segment Block
-            // The horizontal segment runs at the midpoint between tiers.
-            // In a visual grid, this effectively "cuts through" the tanks in the intermediate tiers.
-            // If the blocker is in a column strictly between start and end column, it blocks the horizontal line.
-            else if (bCol >= minCol && bCol <= maxCol) {
+            } else if (bCol >= minCol && bCol <= maxCol) {
               conflictsMap[blocker.id] = 'blocker';
             }
           }
         });
       });
     });
-
     return conflictsMap;
   }, [tanks, tiers]);
 
-  // --- Logic ---
-
+  // [Paste Drag Handlers handleDragStart, handleDragMove, handleDragEnd here]
   const handleDragStart = (e, tank) => {
     e.stopPropagation();
-
     const el = tankRefs.current[tank.id];
     if (!el) return;
-
     const rect = el.getBoundingClientRect();
-
     dragData.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -493,9 +585,7 @@ export default function TankTreeArchitect() {
       targetCol: tank.columnIndex,
       hasMoved: false
     };
-
     dragItemRef.current = el;
-
     window.addEventListener('mousemove', handleDragMove);
     window.addEventListener('mouseup', handleDragEnd);
   };
@@ -504,9 +594,7 @@ export default function TankTreeArchitect() {
     if (!dragData.current.hasMoved) {
       const dist = Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY);
       if (dist < 5) return;
-
       dragData.current.hasMoved = true;
-
       if (dragItemRef.current) {
         dragItemRef.current.style.position = 'fixed';
         dragItemRef.current.style.zIndex = 1000;
@@ -517,7 +605,6 @@ export default function TankTreeArchitect() {
         dragItemRef.current.style.left = `${initialX}px`;
         dragItemRef.current.style.top = `${initialY}px`;
       }
-
       setDraggingState({
         isPressed: true,
         isDragging: true,
@@ -526,34 +613,26 @@ export default function TankTreeArchitect() {
         targetCol: dragData.current.targetCol
       });
     }
-
     if (dragData.current.hasMoved && dragItemRef.current) {
       const x = e.clientX - dragData.current.offsetX;
       const y = e.clientY - dragData.current.offsetY;
-
       dragItemRef.current.style.left = `${x}px`;
       dragItemRef.current.style.top = `${y}px`;
-
       if (containerRef.current) {
         let newTierId = dragData.current.currentTierId;
         let newCol = dragData.current.targetCol;
-
         const elementsUnderCursor = document.elementsFromPoint(e.clientX, e.clientY);
         const tierEl = elementsUnderCursor.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
         if (tierEl) newTierId = tierEl.getAttribute('data-tier-id');
-
         const containerRect = containerRef.current.getBoundingClientRect();
         const scrollLeft = containerRef.current.scrollLeft;
         const itemCenterX = (e.clientX - dragData.current.offsetX) + (TANK_WIDTH / 2);
         const relativeX = itemCenterX - containerRect.left + scrollLeft;
-
         newCol = Math.floor(relativeX / COLUMN_WIDTH);
         if (newCol < 0) newCol = 0;
-
         if (newTierId !== dragData.current.currentTierId || newCol !== dragData.current.targetCol) {
           dragData.current.currentTierId = newTierId;
           dragData.current.targetCol = newCol;
-
           setDraggingState(prev => ({
             ...prev,
             currentTierId: newTierId,
@@ -577,7 +656,6 @@ export default function TankTreeArchitect() {
       setIsParentMenuOpen(false);
       setIsChildMenuOpen(false);
     }
-
     setDraggingState({
       isPressed: false,
       isDragging: false,
@@ -585,7 +663,6 @@ export default function TankTreeArchitect() {
       currentTierId: null,
       targetCol: 0
     });
-
     if (dragItemRef.current) {
       dragItemRef.current.style.left = '';
       dragItemRef.current.style.top = '';
@@ -594,23 +671,21 @@ export default function TankTreeArchitect() {
       dragItemRef.current.style.width = '';
       dragItemRef.current = null;
     }
-
     window.removeEventListener('mousemove', handleDragMove);
     window.removeEventListener('mouseup', handleDragEnd);
   };
 
+  // ... (Keep existing Helper handlers: handleEditTank, handleAddTier, handleAddTank, handleDeleteTank, handleDeleteTier, updateTank, toggleParent, toggleChild, handleImageUpload)
   const handleEditTank = (tank) => {
     setSelectedTankId(tank.id);
     setIsSidebarOpen(true);
   };
-
   const handleAddTier = () => {
     const romanNumerals = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
     const nextIndex = tiers.length;
     const newTier = { id: generateId(), roman: romanNumerals[nextIndex] || `T${nextIndex + 1}`, index: nextIndex };
     setTiers([...tiers, newTier]);
   };
-
   const handleAddTank = (tierId) => {
     let col = 0;
     while (tanks.some(t => t.tierId === tierId && t.columnIndex === col)) {
@@ -622,7 +697,6 @@ export default function TankTreeArchitect() {
     setTanks([...tanks, newTank]);
     handleEditTank(newTank);
   };
-
   const handleDeleteTank = (id) => {
     setTanks(tanks.filter(t => t.id !== id).map(t => ({
       ...t,
@@ -631,7 +705,6 @@ export default function TankTreeArchitect() {
     if (selectedTankId === id) setSelectedTankId(null);
     delete tankRefs.current[id];
   };
-
   const handleDeleteTier = (tierId) => {
     if (tanks.some(t => t.tierId === tierId)) {
       alert("Please remove all tanks from this tier before deleting it.");
@@ -639,12 +712,10 @@ export default function TankTreeArchitect() {
     }
     setTiers(tiers.filter(t => t.id !== tierId));
   };
-
   const updateTank = (id, field, value) => {
     let tempTanks = tanks.map(t => t.id === id ? { ...t, [field]: value } : t);
     setTanks(tempTanks);
   };
-
   const toggleParent = (tankId, parentId) => {
     setTanks(currTanks => currTanks.map(t => {
       if (t.id !== tankId) return t;
@@ -657,7 +728,6 @@ export default function TankTreeArchitect() {
     }));
     setIsParentMenuOpen(false);
   };
-
   const toggleChild = (currentTankId, targetChildId) => {
     setTanks(currTanks => currTanks.map(t => {
       if (t.id !== targetChildId) return t;
@@ -670,7 +740,6 @@ export default function TankTreeArchitect() {
     }));
     setIsChildMenuOpen(false);
   };
-
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file && selectedTankId) {
@@ -679,9 +748,7 @@ export default function TankTreeArchitect() {
       reader.readAsDataURL(file);
     }
   };
-
   const selectedTank = tanks.find(t => t.id === selectedTankId);
-
   const availableParents = selectedTank
     ? tanks.filter(t => {
       const currentTierIndex = tiers.find(tier => tier.id === selectedTank.tierId)?.index || 0;
@@ -689,11 +756,9 @@ export default function TankTreeArchitect() {
       return candidateTierIndex < currentTierIndex;
     })
     : [];
-
   const currentChildren = selectedTank
     ? tanks.filter(t => t.parentIds && t.parentIds.includes(selectedTank.id))
     : [];
-
   const availableChildren = selectedTank
     ? tanks.filter(t => {
       const currentTierIndex = tiers.find(tier => tier.id === selectedTank.tierId)?.index || 0;
@@ -701,12 +766,13 @@ export default function TankTreeArchitect() {
       return candidateTierIndex > currentTierIndex;
     })
     : [];
-
   const conflictCount = Object.keys(conflicts).length;
 
   return (
     <div className="flex h-screen bg-gray-950 text-gray-200 font-sans overflow-hidden select-none">
+      {/* Sidebar - Same as before */}
       <div className={`flex-shrink-0 bg-gray-900 border-r border-gray-800 transition-all duration-300 flex flex-col ${isSidebarOpen ? 'w-80' : 'w-0'}`}>
+        {/* ... (Keep Sidebar Content exactly the same as provided in prompt) ... */}
         <div className="p-4 border-b border-gray-800 flex items-center justify-between">
           <h2 className="font-bold text-lg text-yellow-500 flex items-center gap-2">
             <Settings size={18} /> Tank Details
@@ -715,7 +781,6 @@ export default function TankTreeArchitect() {
             <ChevronDown className="transform rotate-90" />
           </button>
         </div>
-
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {selectedTank ? (
             <>
@@ -728,7 +793,6 @@ export default function TankTreeArchitect() {
                   {selectedTank.image && <button onClick={(e) => { e.stopPropagation(); updateTank(selectedTank.id, 'image', null); }} className="absolute top-2 right-2 p-1 bg-red-600 rounded text-white opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={12} /></button>}
                 </div>
               </div>
-
               {/* Grid Pos */}
               <div className="p-3 bg-gray-800/50 rounded border border-gray-800">
                 <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2 mb-2">
@@ -740,7 +804,6 @@ export default function TankTreeArchitect() {
                   <button onClick={() => updateTank(selectedTank.id, 'columnIndex', (selectedTank.columnIndex || 0) + 1)} className="flex-1 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs flex items-center justify-center gap-1">Right <ChevronRight size={14} /></button>
                 </div>
               </div>
-
               {/* Details */}
               <div className="space-y-3">
                 <div className="space-y-1">
@@ -764,13 +827,11 @@ export default function TankTreeArchitect() {
                   </div>
                 </div>
               </div>
-
               {/* Parents Section */}
               <div className="space-y-2 pt-4 border-t border-gray-800">
                 <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2">
                   <Network size={12} /> Research Parents (From)
                 </label>
-
                 <div className="space-y-2 mb-3">
                   {selectedTank.parentIds && selectedTank.parentIds.length > 0 ? (
                     selectedTank.parentIds.map(pid => {
@@ -793,7 +854,6 @@ export default function TankTreeArchitect() {
                     <div className="text-xs text-gray-500 italic p-2 border border-dashed border-gray-800 rounded">No parent tanks linked.</div>
                   )}
                 </div>
-
                 <div className="relative">
                   <button
                     onClick={() => { setIsParentMenuOpen(!isParentMenuOpen); setIsChildMenuOpen(false); }}
@@ -802,7 +862,6 @@ export default function TankTreeArchitect() {
                     <LinkIcon size={12} /> Link Parent Tank
                     <ChevronDown size={12} className={`transition-transform ${isParentMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
-
                   {isParentMenuOpen && (
                     <div className="absolute left-0 right-0 bottom-full mb-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded shadow-xl z-50">
                       {availableParents.length === 0 && <div className="p-2 text-xs text-gray-500">No available parents in lower tiers.</div>}
@@ -823,13 +882,11 @@ export default function TankTreeArchitect() {
                   )}
                 </div>
               </div>
-
               {/* Children Section */}
               <div className="space-y-2 pt-4 border-t border-gray-800">
                 <label className="text-xs font-semibold text-gray-500 uppercase flex items-center gap-2">
                   <ArrowDownCircle size={12} /> Tech Tree Children (To)
                 </label>
-
                 <div className="space-y-2 mb-3">
                   {currentChildren.length > 0 ? (
                     currentChildren.map(child => (
@@ -848,7 +905,6 @@ export default function TankTreeArchitect() {
                     <div className="text-xs text-gray-500 italic p-2 border border-dashed border-gray-800 rounded">No children (end of line).</div>
                   )}
                 </div>
-
                 <div className="relative">
                   <button
                     onClick={() => { setIsChildMenuOpen(!isChildMenuOpen); setIsParentMenuOpen(false); }}
@@ -857,7 +913,6 @@ export default function TankTreeArchitect() {
                     <LinkIcon size={12} /> Link Child Tank
                     <ChevronDown size={12} className={`transition-transform ${isChildMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
-
                   {isChildMenuOpen && (
                     <div className="absolute left-0 right-0 bottom-full mb-1 max-h-48 overflow-y-auto bg-gray-900 border border-gray-700 rounded shadow-xl z-50">
                       {availableChildren.length === 0 && <div className="p-2 text-xs text-gray-500">No available children in higher tiers.</div>}
@@ -878,7 +933,6 @@ export default function TankTreeArchitect() {
                   )}
                 </div>
               </div>
-
               <div className="pt-6 mt-auto">
                 <button onClick={() => handleDeleteTank(selectedTank.id)} className="w-full py-2 bg-red-900/30 hover:bg-red-900 text-red-500 hover:text-white rounded border border-red-900 transition-colors text-sm flex items-center justify-center gap-2">
                   <Trash2 size={14} /> Delete Tank
@@ -913,7 +967,14 @@ export default function TankTreeArchitect() {
         <div ref={containerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 cursor-default">
           <div className="min-w-full inline-block pb-20 relative">
 
-            <ConnectionLines tanks={tanks} tankRefs={tankRefs} containerRef={containerRef} draggingState={draggingState} />
+            {/* Pass highlightedIds to ConnectionLines */}
+            <ConnectionLines
+              tanks={tanks}
+              tankRefs={tankRefs}
+              containerRef={containerRef}
+              draggingState={draggingState}
+              highlightedIds={highlightedIds}
+            />
 
             <div className="flex flex-col relative z-10 pt-4">
               {tiers.map((tier) => (
@@ -925,6 +986,7 @@ export default function TankTreeArchitect() {
                   onEditTank={handleEditTank}
                   onAddTank={handleAddTank}
                   selectedTankId={selectedTankId}
+                  highlightedIds={highlightedIds} // Pass highlighting down
                   onDeleteTank={handleDeleteTank}
                   onDeleteTier={handleDeleteTier}
                   registerTankRef={(id, el) => { tankRefs.current[id] = el; }}
