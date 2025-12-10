@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { doSegmentsIntersect } from '../utils';
 
 // Helper: Check if line intersects a rectangle
@@ -43,48 +43,35 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
 
     if (orientation === 'vertical') {
         const midY = (start.y + end.y) / 2;
-        
-        // A. Standard Mid-Split
-        candidates.push([
-            { x: start.x, y: start.y },
-            { x: start.x, y: midY },
-            { x: end.x, y: midY },
-            { x: end.x, y: end.y }
-        ]);
-
-        // B. Early Turn
-        candidates.push([
-            { x: start.x, y: start.y },
-            { x: start.x, y: start.y + 20 },
-            { x: end.x, y: start.y + 20 },
-            { x: end.x, y: end.y }
-        ]);
-
-        // C. Late Turn
-        candidates.push([
-            { x: start.x, y: start.y },
-            { x: start.x, y: end.y - 20 },
-            { x: end.x, y: end.y - 20 },
-            { x: end.x, y: end.y }
-        ]);
+        // Standard Mid-Split Vertical
+        candidates.push([{ x: start.x, y: start.y }, { x: start.x, y: midY }, { x: end.x, y: midY }, { x: end.x, y: end.y }]);
+        // (Keep existing vertical candidates...)
+        candidates.push([{ x: start.x, y: start.y }, { x: start.x, y: start.y + 20 }, { x: end.x, y: start.y + 20 }, { x: end.x, y: end.y }]);
     } else {
-        // Horizontal
+        // HORIZONTAL LOGIC
         const midX = (start.x + end.x) / 2;
-        
-        // A. Standard Mid-Split
+
+        // A. Standard Mid-Split Horizontal
         candidates.push([
             { x: start.x, y: start.y },
             { x: midX, y: start.y },
             { x: midX, y: end.y },
             { x: end.x, y: end.y }
         ]);
-        
-        // B. Vertical Detour
-        const topY = Math.min(start.y, end.y) - 40;
+
+        // B. Early Turn (close to parent)
         candidates.push([
             { x: start.x, y: start.y },
-            { x: start.x, y: topY },
-            { x: end.x, y: topY },
+            { x: start.x + 20, y: start.y },
+            { x: start.x + 20, y: end.y },
+            { x: end.x, y: end.y }
+        ]);
+
+        // C. Late Turn (close to child)
+        candidates.push([
+            { x: start.x, y: start.y },
+            { x: end.x - 20, y: start.y },
+            { x: end.x - 20, y: end.y },
             { x: end.x, y: end.y }
         ]);
     }
@@ -93,9 +80,7 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
 
     for (const points of candidates) {
         const blocker = checkPathCollision(points, obstacles, parentId, childId);
-        if (!blocker) {
-            return { points, isBlocked: false };
-        }
+        if (!blocker) return { points, isBlocked: false };
         if (!firstBlocker) firstBlocker = blocker;
     }
 
@@ -103,26 +88,26 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
     if (firstBlocker && orientation === 'vertical') {
         const bRect = firstBlocker.rect;
         const PAD = 25;
-        
+
         const goLeft = Math.abs((bRect.left - PAD) - end.x) < Math.abs((bRect.right + PAD) - end.x);
         const detourX = goLeft ? bRect.left - PAD : bRect.right + PAD;
 
         const startInside = start.y > bRect.top - 10;
-        
+
         const detourPoints = [];
         detourPoints.push({ x: start.x, y: start.y });
-        
+
         if (startInside) {
-             detourPoints.push({ x: detourX, y: start.y });
+            detourPoints.push({ x: detourX, y: start.y });
         } else {
-             const branchY = Math.min((start.y + bRect.top) / 2, bRect.top - 20);
-             detourPoints.push({ x: start.x, y: branchY });
-             detourPoints.push({ x: detourX, y: branchY });
+            const branchY = Math.min((start.y + bRect.top) / 2, bRect.top - 20);
+            detourPoints.push({ x: start.x, y: branchY });
+            detourPoints.push({ x: detourX, y: branchY });
         }
 
         const mergeY = Math.max((end.y + bRect.bottom) / 2, bRect.bottom + 20);
         detourPoints.push({ x: detourX, y: mergeY });
-        
+
         detourPoints.push({ x: end.x, y: mergeY });
         detourPoints.push({ x: end.x, y: end.y });
 
@@ -134,14 +119,14 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
     return { points: candidates[0], isBlocked: true };
 };
 
-const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState, highlightedIds }) => {
+const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState, highlightedIds, layoutMode }) => {
     const [lines, setLines] = useState([]);
     const [crossingIds, setCrossingIds] = useState(new Set());
+    const isHorizontal = layoutMode === 'horizontal';
 
     useLayoutEffect(() => {
         const animationFrameId = requestAnimationFrame(() => {
             if (!containerRef.current) return;
-
             const containerRect = containerRef.current.getBoundingClientRect();
             const scrollLeft = containerRef.current.scrollLeft;
             const scrollTop = containerRef.current.scrollTop;
@@ -159,8 +144,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                         bottom: rect.bottom - containerRect.top + scrollTop,
                         left: rect.left - containerRect.left + scrollLeft,
                         right: rect.right - containerRect.left + scrollLeft,
-                        width: rect.width,
-                        height: rect.height,
+                        width: rect.width, height: rect.height,
                         centerX: (rect.left - containerRect.left + scrollLeft) + rect.width / 2,
                         centerY: (rect.top - containerRect.top + scrollTop) + rect.height / 2
                     };
@@ -169,12 +153,8 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 }
             });
 
-            // 2. Identify and Pre-calculate Connection Sides
             const allConnections = [];
-            
-            // Buckets for separating connections by specific side (Parent-Side and Child-Side)
-            // Keys: "tankID-bottom", "tankID-right", etc.
-            const parentPorts = {}; 
+            const parentPorts = {};
             const childPorts = {};
 
             tanks.forEach(tank => {
@@ -185,46 +165,42 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
 
                     const pRect = rectMap.get(parentId);
                     const cRect = rectMap.get(tank.id);
-
-                    // Determine Geometry First
-                    const verticalGap = cRect.top - pRect.bottom;
-                    const isChildBelow = verticalGap > 20; 
-                    const isChildAbove = pRect.top - cRect.bottom > 20;
-
                     let startSide, endSide, orientation;
 
-                    if (isChildBelow) {
-                        startSide = 'bottom';
-                        endSide = 'top';
-                        orientation = 'vertical';
-                    } else if (isChildAbove) {
-                        startSide = 'top';
-                        endSide = 'bottom';
-                        orientation = 'vertical';
-                    } else {
-                        orientation = 'horizontal';
-                        if (cRect.left > pRect.right) {
-                            startSide = 'right';
-                            endSide = 'left';
+                    if (isHorizontal) {
+                        // Horizontal Logic: Parent is usually to the Left, Child to the Right
+                        // Check if child is significantly to the right
+                        const isChildRight = cRect.left > pRect.right + 20;
+                        const isChildLeft = pRect.left > cRect.right + 20;
+
+                        if (isChildRight) {
+                            startSide = 'right'; endSide = 'left'; orientation = 'horizontal';
+                        } else if (isChildLeft) {
+                            startSide = 'left'; endSide = 'right'; orientation = 'horizontal';
                         } else {
-                            startSide = 'left';
-                            endSide = 'right';
+                            // Stacked vertically in horizontal mode (fallback)
+                            startSide = 'bottom'; endSide = 'top'; orientation = 'vertical';
+                        }
+                    } else {
+                        // Vertical Logic (Original)
+                        const verticalGap = cRect.top - pRect.bottom;
+                        const isChildBelow = verticalGap > 20;
+                        const isChildAbove = pRect.top - cRect.bottom > 20;
+
+                        if (isChildBelow) {
+                            startSide = 'bottom'; endSide = 'top'; orientation = 'vertical';
+                        } else if (isChildAbove) {
+                            startSide = 'top'; endSide = 'bottom'; orientation = 'vertical';
+                        } else {
+                            startSide = cRect.left > pRect.right ? 'right' : 'left';
+                            endSide = cRect.left > pRect.right ? 'left' : 'right';
+                            orientation = 'horizontal';
                         }
                     }
 
-                    const connData = {
-                        parentId,
-                        childId: tank.id,
-                        startSide,
-                        endSide,
-                        orientation,
-                        pRect,
-                        cRect
-                    };
-
+                    const connData = { parentId, childId: tank.id, startSide, endSide, orientation, pRect, cRect };
                     allConnections.push(connData);
 
-                    // Group by specific port
                     const pKey = `${parentId}-${startSide}`;
                     if (!parentPorts[pKey]) parentPorts[pKey] = [];
                     parentPorts[pKey].push(connData);
@@ -236,69 +212,51 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
             });
 
             const generatedLines = [];
-            const OFFSET_STEP = 10; 
+            const OFFSET_STEP = 10;
 
             // 3. Generate Lines with offsets calculated only within specific ports
             allConnections.forEach(conn => {
+                // ... (Keep existing sorting and offset logic)
                 const parentTank = tanks.find(t => t.id === conn.parentId);
-                
-                // --- Parent Offset Calculation ---
                 const pKey = `${conn.parentId}-${conn.startSide}`;
                 const siblingsAtParent = parentPorts[pKey];
-                
-                // Sort siblings based on orientation to prevent crossing at the source
+
+                // IMPORTANT: Sort order changes based on orientation
                 siblingsAtParent.sort((a, b) => {
-                    // If exiting vertically, sort by X. If exiting horizontally, sort by Y.
-                    if (conn.orientation === 'vertical') {
-                        return a.cRect.centerX - b.cRect.centerX;
-                    } else {
-                        return a.cRect.centerY - b.cRect.centerY;
-                    }
+                    if (conn.orientation === 'vertical') return a.cRect.centerX - b.cRect.centerX;
+                    return a.cRect.centerY - b.cRect.centerY; // Sort by Y for horizontal lines
                 });
-                
+
                 const pIndex = siblingsAtParent.indexOf(conn);
                 const pOffset = (pIndex - (siblingsAtParent.length - 1) / 2) * OFFSET_STEP;
 
-                // --- Child Offset Calculation ---
                 const cKey = `${conn.childId}-${conn.endSide}`;
                 const siblingsAtChild = childPorts[cKey];
-
                 siblingsAtChild.sort((a, b) => {
-                    if (conn.orientation === 'vertical') {
-                        return a.pRect.centerX - b.pRect.centerX;
-                    } else {
-                        return a.pRect.centerY - b.pRect.centerY;
-                    }
+                    if (conn.orientation === 'vertical') return a.pRect.centerX - b.pRect.centerX;
+                    return a.pRect.centerY - b.pRect.centerY;
                 });
-
                 const cIndex = siblingsAtChild.indexOf(conn);
                 const cOffset = (cIndex - (siblingsAtChild.length - 1) / 2) * OFFSET_STEP;
 
-
-                // --- Define Final Start/End Points ---
+                // --- Define Start/End Points ---
                 let start = { x: 0, y: 0 };
                 let end = { x: 0, y: 0 };
-
                 const pRect = conn.pRect;
                 const cRect = conn.cRect;
 
-                switch (conn.startSide) {
-                    case 'bottom': start = { x: pRect.centerX + pOffset, y: pRect.bottom }; break;
-                    case 'top':    start = { x: pRect.centerX + pOffset, y: pRect.top }; break;
-                    case 'right':  start = { x: pRect.right, y: pRect.centerY + pOffset }; break;
-                    case 'left':   start = { x: pRect.left, y: pRect.centerY + pOffset }; break;
-                }
+                // Map sides to coords
+                if (conn.startSide === 'bottom') start = { x: pRect.centerX + pOffset, y: pRect.bottom };
+                else if (conn.startSide === 'top') start = { x: pRect.centerX + pOffset, y: pRect.top };
+                else if (conn.startSide === 'right') start = { x: pRect.right, y: pRect.centerY + pOffset };
+                else if (conn.startSide === 'left') start = { x: pRect.left, y: pRect.centerY + pOffset };
 
-                switch (conn.endSide) {
-                    case 'top':    end = { x: cRect.centerX + cOffset, y: cRect.top }; break;
-                    case 'bottom': end = { x: cRect.centerX + cOffset, y: cRect.bottom }; break;
-                    case 'left':   end = { x: cRect.left, y: cRect.centerY + cOffset }; break;
-                    case 'right':  end = { x: cRect.right, y: cRect.centerY + cOffset }; break;
-                }
+                if (conn.endSide === 'top') end = { x: cRect.centerX + cOffset, y: cRect.top };
+                else if (conn.endSide === 'bottom') end = { x: cRect.centerX + cOffset, y: cRect.bottom };
+                else if (conn.endSide === 'left') end = { x: cRect.left, y: cRect.centerY + cOffset };
+                else if (conn.endSide === 'right') end = { x: cRect.right, y: cRect.centerY + cOffset };
 
-                // --- Run Pathfinding ---
                 const pathResult = calculatePath(start, end, obstacleMap, conn.parentId, conn.childId, conn.orientation);
-
                 generatedLines.push({
                     id: `${conn.parentId}-${conn.childId}`,
                     parentId: conn.parentId,
@@ -339,7 +297,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
         });
 
         return () => cancelAnimationFrame(animationFrameId);
-    }, [tanks, tankRefs, containerRef, draggingState, groups]);
+    }, [tanks, tankRefs, containerRef, draggingState, groups, isHorizontal]);
 
     const toPathString = (points) => {
         if (!points.length) return "";
@@ -379,25 +337,25 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 const lastPoint = line.points[len - 1];
                 const prevPoint = line.points[len - 2];
                 const arrowRotation = getArrowAngle(prevPoint, lastPoint);
-                const arrowPoints = "-6,-3 0,0 -6,3"; 
+                const arrowPoints = "-6,-3 0,0 -6,3";
 
                 return (
                     <g key={line.id}>
                         <path d={toPathString(line.points)} stroke="#0a0a0a" strokeWidth="5" fill="none" />
-                        <path 
-                            d={toPathString(line.points)} 
-                            stroke={color} 
-                            strokeWidth={strokeWidth} 
-                            fill="none" 
-                            strokeDasharray={strokeDash} 
-                            opacity={opacity} 
+                        <path
+                            d={toPathString(line.points)}
+                            stroke={color}
+                            strokeWidth={strokeWidth}
+                            fill="none"
+                            strokeDasharray={strokeDash}
+                            opacity={opacity}
                             strokeLinejoin="round"
-                            className="transition-colors duration-300" 
+                            className="transition-colors duration-300"
                         />
                         {lastPoint && prevPoint && (
-                            <polygon 
+                            <polygon
                                 points={arrowPoints}
-                                fill={color} 
+                                fill={color}
                                 opacity={opacity}
                                 transform={`translate(${lastPoint.x}, ${lastPoint.y}) rotate(${arrowRotation})`}
                             />
