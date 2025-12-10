@@ -1,12 +1,12 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, Trash2, Settings, Shield, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Settings, Shield, AlertTriangle, Link2 } from 'lucide-react'; 
 import { generateId, DEFAULT_GROUPS, COLUMN_WIDTH, TANK_WIDTH, getAllConnectedIds } from './utils';
 import TankCard from './components/TankCard';
 import Sidebar from './components/Sidebar';
 import ConnectionLines from './components/ConnectionLines';
 
-// Helper component for tiers, kept here as it relies heavily on local callbacks
-const TierRow = ({ tier, tanks, groups, selectedTankId, highlightedIds, draggingState, conflicts, gridColumns, handlers, registerRef }) => {
+// Helper component for tiers
+const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, highlightedIds, draggingState, conflicts, gridColumns, handlers, registerRef }) => {
   const isTargetTier = draggingState.currentTierId === tier.id;
   return (
     <div
@@ -19,8 +19,9 @@ const TierRow = ({ tier, tanks, groups, selectedTankId, highlightedIds, dragging
       <div className="w-16 flex-shrink-0 bg-neutral-950 border-r border-neutral-800/50 flex flex-col items-center pt-6 z-10 sticky left-0">
         <span className="text-xl font-bold text-neutral-700 font-serif mb-3">{tier.roman}</span>
         <div className="flex flex-col gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity">
-          <button onClick={() => handlers.onAddTank(tier.id)} className="p-1 text-neutral-600 hover:text-green-500 transition-colors"><Plus size={14} /></button>
-          <button onClick={() => handlers.onDeleteTier(tier.id)} className="p-1 text-neutral-600 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+          {/* Added stopPropagation to buttons */}
+          <button onClick={(e) => { e.stopPropagation(); handlers.onAddTank(tier.id); }} className="p-1 text-neutral-600 hover:text-green-500 transition-colors"><Plus size={14} /></button>
+          <button onClick={(e) => { e.stopPropagation(); handlers.onDeleteTier(tier.id); }} className="p-1 text-neutral-600 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
         </div>
       </div>
       <div className="relative flex-1">
@@ -37,6 +38,7 @@ const TierRow = ({ tier, tanks, groups, selectedTankId, highlightedIds, dragging
               tank={tank}
               group={groups.find(g => g.id === tank.groupId) || groups[0]}
               isSelected={selectedTankId === tank.id}
+              isConnectionSource={connectionSourceId === tank.id} 
               isHighlighted={highlightedIds && highlightedIds.has(tank.id)}
               onEdit={handlers.onEditTank}
               onDelete={handlers.onDeleteTank}
@@ -61,12 +63,13 @@ export default function TankTreeArchitect() {
   ]);
 
   const [selectedTankId, setSelectedTankId] = useState(null);
+  const [connectionSourceId, setConnectionSourceId] = useState(null); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [draggingState, setDraggingState] = useState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
 
   const tankRefs = useRef({});
   const containerRef = useRef(null);
-  const dragItemRef = useRef(null);
+  const dragOverlayRef = useRef(null);
   const dragData = useRef({ startX: 0, startY: 0, offsetX: 0, offsetY: 0, tankId: null, currentTierId: null, targetCol: 0, hasMoved: false });
 
   const maxColumnIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
@@ -83,22 +86,73 @@ export default function TankTreeArchitect() {
       posMap.get(key).push(t.id);
     });
     posMap.forEach(ids => { if (ids.length > 1) ids.forEach(id => conflictsMap[id] = 'overlap'); });
-    // Blocker logic omitted for brevity, but can be pasted back from original
     return conflictsMap;
   }, [tanks, tiers]);
 
   // --- Handlers ---
+
+  // New handler for background clicks
+  const handleBackgroundClick = () => {
+    // This fires when clicking the container or empty space in rows
+    // It will NOT fire when clicking Tanks because TankCard stops propagation
+    setSelectedTankId(null);
+    setConnectionSourceId(null);
+  };
+
+  const connectTanks = (sourceId, targetId) => {
+    if (sourceId === targetId) return; 
+    
+    const sourceTank = tanks.find(t => t.id === sourceId);
+    const targetTank = tanks.find(t => t.id === targetId);
+    if(!sourceTank || !targetTank) return;
+    
+    if (targetTank.parentIds.includes(sourceId)) {
+        alert("These tanks are already connected.");
+        return;
+    }
+
+    setTanks(prev => prev.map(t => {
+        if (t.id === targetId) {
+            return { ...t, parentIds: [...t.parentIds, sourceId] };
+        }
+        return t;
+    }));
+  };
+
   const handleDragStart = (e, tank) => {
+    if (e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (connectionSourceId === null) {
+            setConnectionSourceId(tank.id);
+        } else {
+            if (connectionSourceId !== tank.id) {
+                connectTanks(connectionSourceId, tank.id);
+            }
+            setConnectionSourceId(null);
+        }
+        return;
+    }
+
     e.stopPropagation();
+    
+    if (connectionSourceId) setConnectionSourceId(null);
+
     const el = tankRefs.current[tank.id];
-    if (!el) return;
     const rect = el.getBoundingClientRect();
+
     dragData.current = {
-      startX: e.clientX, startY: e.clientY,
-      offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
-      tankId: tank.id, currentTierId: tank.tierId, targetCol: tank.columnIndex, hasMoved: false
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      tankId: tank.id,
+      currentTierId: tank.tierId,
+      targetCol: tank.columnIndex,
+      hasMoved: false
     };
-    dragItemRef.current = el;
+
     window.addEventListener('mousemove', handleDragMove);
     window.addEventListener('mouseup', handleDragEnd);
   };
@@ -107,30 +161,29 @@ export default function TankTreeArchitect() {
     if (!dragData.current.hasMoved) {
       const dist = Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY);
       if (dist < 5) return;
+
       dragData.current.hasMoved = true;
-      if (dragItemRef.current) {
-        Object.assign(dragItemRef.current.style, { position: 'fixed', zIndex: 1000, pointerEvents: 'none', width: `${TANK_WIDTH}px` });
-        dragItemRef.current.style.left = `${e.clientX - dragData.current.offsetX}px`;
-        dragItemRef.current.style.top = `${e.clientY - dragData.current.offsetY}px`;
-      }
       setDraggingState({ isPressed: true, isDragging: true, tankId: dragData.current.tankId, currentTierId: dragData.current.currentTierId, targetCol: dragData.current.targetCol });
     }
-    if (dragData.current.hasMoved && dragItemRef.current) {
-      dragItemRef.current.style.left = `${e.clientX - dragData.current.offsetX}px`;
-      dragItemRef.current.style.top = `${e.clientY - dragData.current.offsetY}px`;
-      if (containerRef.current) {
+
+    if (dragOverlayRef.current) {
+      dragOverlayRef.current.style.left = `${e.clientX - dragData.current.offsetX}px`;
+      dragOverlayRef.current.style.top = `${e.clientY - dragData.current.offsetY}px`;
+    }
+
+    if (dragData.current.hasMoved && containerRef.current) {
         const elements = document.elementsFromPoint(e.clientX, e.clientY);
         const tierEl = elements.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
         let newTierId = tierEl ? tierEl.getAttribute('data-tier-id') : dragData.current.currentTierId;
         const rect = containerRef.current.getBoundingClientRect();
         let newCol = Math.floor(((e.clientX - dragData.current.offsetX + TANK_WIDTH / 2) - rect.left + containerRef.current.scrollLeft) / COLUMN_WIDTH);
         if (newCol < 0) newCol = 0;
+        
         if (newTierId !== dragData.current.currentTierId || newCol !== dragData.current.targetCol) {
           dragData.current.currentTierId = newTierId;
           dragData.current.targetCol = newCol;
           setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newCol }));
         }
-      }
     }
   };
 
@@ -142,10 +195,6 @@ export default function TankTreeArchitect() {
       setIsSidebarOpen(true);
     }
     setDraggingState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
-    if (dragItemRef.current) {
-      dragItemRef.current.style = '';
-      dragItemRef.current = null;
-    }
     window.removeEventListener('mousemove', handleDragMove);
     window.removeEventListener('mouseup', handleDragEnd);
   };
@@ -185,6 +234,9 @@ export default function TankTreeArchitect() {
 
   const combinedHandlers = { onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); }, onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id)); if (selectedTankId === id) setSelectedTankId(null); }, onDragStart: handleDragStart, onAddTank: handleAddTank, onDeleteTier: (id) => { if (!tanks.some(t => t.tierId === id)) setTiers(tiers.filter(t => t.id !== id)); } };
 
+  const draggingTank = draggingState.tankId ? tanks.find(t => t.id === draggingState.tankId) : null;
+  const draggingGroup = draggingTank ? groups.find(g => g.id === draggingTank.groupId) : null;
+
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
       <Sidebar
@@ -200,25 +252,64 @@ export default function TankTreeArchitect() {
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 bg-neutral-900 border border-neutral-800 rounded-sm hover:bg-neutral-800"><Settings size={16} /></button>}
             <h1 className="text-sm font-bold tracking-[0.2em] text-neutral-400 flex items-center gap-2 uppercase"><Shield size={16} /> Tank Tree Architect</h1>
           </div>
-          {Object.keys(conflicts).length > 0 && <div className="flex items-center gap-2 text-red-500 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-red-900 rounded-sm"><AlertTriangle size={12} /> {Object.keys(conflicts).length} ISSUES</div>}
+          <div className="flex items-center gap-4">
+            {connectionSourceId && (
+                <div className="flex items-center gap-2 text-blue-400 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-blue-900 rounded-sm animate-pulse">
+                    <Link2 size={12} /> SELECT TARGET
+                </div>
+            )}
+            {Object.keys(conflicts).length > 0 && <div className="flex items-center gap-2 text-red-500 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-red-900 rounded-sm"><AlertTriangle size={12} /> {Object.keys(conflicts).length} ISSUES</div>}
+          </div>
         </div>
-        <div ref={containerRef} className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-neutral-950">
+        
+        {/* Added onClick for deselect logic */}
+        <div 
+            ref={containerRef} 
+            onClick={handleBackgroundClick}
+            className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-neutral-950"
+        >
           <div className="min-w-full inline-block pb-20 relative">
             <ConnectionLines tanks={tanks} groups={groups} tankRefs={tankRefs} containerRef={containerRef} draggingState={draggingState} highlightedIds={highlightedIds} />
             <div className="flex flex-col relative z-10 pt-4">
               {tiers.map(tier => (
                 <TierRow
                   key={tier.id} tier={tier} tanks={tanks.filter(t => t.tierId === tier.id)} groups={groups}
-                  selectedTankId={selectedTankId} highlightedIds={highlightedIds} draggingState={draggingState} conflicts={conflicts}
+                  selectedTankId={selectedTankId} 
+                  connectionSourceId={connectionSourceId}
+                  highlightedIds={highlightedIds} draggingState={draggingState} conflicts={conflicts}
                   gridColumns={gridColumns} handlers={combinedHandlers} registerRef={(id, el) => { tankRefs.current[id] = el; }}
                 />
               ))}
               <div className="w-full flex items-center justify-center py-6">
-                <button onClick={() => setTiers([...tiers, { id: generateId(), roman: `T${tiers.length + 1}`, index: tiers.length }])} className="group flex items-center gap-2 px-6 py-2 bg-neutral-950 border border-dashed border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900 rounded-sm transition-all">
+                {/* Added stopPropagation to Add Tier button */}
+                <button 
+                  onClick={(e) => { e.stopPropagation(); setTiers([...tiers, { id: generateId(), roman: `T${tiers.length + 1}`, index: tiers.length }]); }} 
+                  className="group flex items-center gap-2 px-6 py-2 bg-neutral-950 border border-dashed border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900 rounded-sm transition-all"
+                >
                   <Plus size={14} className="text-neutral-600 group-hover:text-neutral-300" /><span className="text-xs text-neutral-600 font-medium group-hover:text-neutral-300 uppercase tracking-wide">Add Tier</span>
                 </button>
               </div>
             </div>
+
+            {draggingState.isDragging && draggingTank && (
+              <div 
+                  ref={dragOverlayRef}
+                  className="fixed pointer-events-none z-[9999]"
+                  style={{ 
+                      width: TANK_WIDTH, 
+                      left: dragData.current.startX - dragData.current.offsetX,
+                      top: dragData.current.startY - dragData.current.offsetY
+                  }}
+              >
+                  <TankCard
+                      tank={draggingTank}
+                      group={draggingGroup}
+                      isSelected={true} 
+                      styleOverride={{ position: 'static' }} 
+                  />
+              </div>
+            )}
+            
           </div>
         </div>
       </div>
