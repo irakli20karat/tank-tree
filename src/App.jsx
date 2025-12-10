@@ -1,12 +1,12 @@
 import { useState, useRef, useMemo } from 'react';
-import { Plus, Trash2, Settings, Shield, AlertTriangle, Link2, Download, Upload, Save } from 'lucide-react';
+import { Plus, Trash2, Settings, Shield, AlertTriangle, Link2, Download, Upload, Save } from 'lucide-react'; 
 import { generateId, DEFAULT_GROUPS, COLUMN_WIDTH, TANK_WIDTH, getAllConnectedIds } from './utils';
 import TankCard from './components/TankCard';
 import Sidebar from './components/Sidebar';
 import ConnectionLines from './components/ConnectionLines';
 
-// Helper component for tiers (No changes needed here, but included for context if you copy-paste)
-const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, highlightedIds, draggingState, conflicts, gridColumns, handlers, registerRef }) => {
+// Helper component for tiers
+const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, highlightedIds, draggingState, conflicts, gridColumns, handlers, registerRef, isLastTier }) => {
   const isTargetTier = draggingState.currentTierId === tier.id;
   return (
     <div
@@ -16,13 +16,24 @@ const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, high
         ${isTargetTier && draggingState.isDragging ? 'bg-neutral-900/30' : 'hover:bg-neutral-900/10'}
       `}
     >
-      <div className="w-16 flex-shrink-0 bg-neutral-950 border-r border-neutral-800/50 flex flex-col items-center pt-6 z-10 sticky left-0">
-        <span className="text-xl font-bold text-neutral-700 font-serif mb-3">{tier.roman}</span>
+      {/* Left Column (Tier Label) */}
+      <div className="w-16 flex-shrink-0 bg-neutral-950 border-r border-neutral-800/50 flex flex-col items-center pt-6 z-10 sticky left-0 shadow-[4px_0_24px_-2px_rgba(0,0,0,0.5)]">
+        <span className="text-xl font-bold text-neutral-700 font-serif mb-3 select-none">{tier.roman}</span>
         <div className="flex flex-col gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity">
-          <button onClick={(e) => { e.stopPropagation(); handlers.onAddTank(tier.id); }} className="p-1 text-neutral-600 hover:text-green-500 transition-colors"><Plus size={14} /></button>
-          <button onClick={(e) => { e.stopPropagation(); handlers.onDeleteTier(tier.id); }} className="p-1 text-neutral-600 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
+          {/* Only show Delete if it is the last tier */}
+          {isLastTier && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); handlers.onDeleteTier(tier.id); }} 
+                className="p-2 text-neutral-600 hover:text-red-500 hover:bg-neutral-900 rounded-sm transition-colors"
+                title="Delete Tier"
+            >
+                <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Right Content (Grid) */}
       <div className="relative flex-1">
         <div className="grid items-center p-4 h-full relative" style={{ gridTemplateColumns: `repeat(${gridColumns}, ${COLUMN_WIDTH}px)`, width: 'max-content', gap: '0' }}>
           {draggingState.isDragging && isTargetTier && (
@@ -37,7 +48,7 @@ const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, high
               tank={tank}
               group={groups.find(g => g.id === tank.groupId) || groups[0]}
               isSelected={selectedTankId === tank.id}
-              isConnectionSource={connectionSourceId === tank.id}
+              isConnectionSource={connectionSourceId === tank.id} 
               isHighlighted={highlightedIds && highlightedIds.has(tank.id)}
               onEdit={handlers.onEditTank}
               onDelete={handlers.onDeleteTank}
@@ -62,7 +73,7 @@ export default function TankTreeArchitect() {
   ]);
 
   const [selectedTankId, setSelectedTankId] = useState(null);
-  const [connectionSourceId, setConnectionSourceId] = useState(null);
+  const [connectionSourceId, setConnectionSourceId] = useState(null); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [draggingState, setDraggingState] = useState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
 
@@ -70,7 +81,7 @@ export default function TankTreeArchitect() {
   const containerRef = useRef(null);
   const dragOverlayRef = useRef(null);
   const dragData = useRef({ startX: 0, startY: 0, offsetX: 0, offsetY: 0, tankId: null, currentTierId: null, targetCol: 0, hasMoved: false });
-  const fileInputRef = useRef(null); // Reference for hidden file input
+  const fileInputRef = useRef(null);
 
   const maxColumnIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridColumns = Math.max(maxColumnIndex + 6, 8);
@@ -89,17 +100,10 @@ export default function TankTreeArchitect() {
     return conflictsMap;
   }, [tanks, tiers]);
 
-  // --- Save / Load Handlers ---
+  // --- Handlers ---
 
   const handleSaveProject = () => {
-    const projectData = {
-      version: "1.0",
-      timestamp: new Date().toISOString(),
-      tiers,
-      groups,
-      tanks
-    };
-
+    const projectData = { version: "1.0", timestamp: new Date().toISOString(), tiers, groups, tanks };
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -111,27 +115,23 @@ export default function TankTreeArchitect() {
     URL.revokeObjectURL(url);
   };
 
-  const handleLoadClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleLoadClick = () => fileInputRef.current?.click();
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
         const data = JSON.parse(event.target.result);
         if (data.tanks && data.tiers && data.groups) {
-          // Basic validation passed
-          setTiers(data.tiers);
-          setGroups(data.groups);
-          setTanks(data.tanks);
-          setSelectedTankId(null);
-          setConnectionSourceId(null);
+           setTiers(data.tiers);
+           setGroups(data.groups);
+           setTanks(data.tanks);
+           setSelectedTankId(null);
+           setConnectionSourceId(null);
         } else {
-          alert("Invalid project file format.");
+           alert("Invalid project file format.");
         }
       } catch (err) {
         console.error(err);
@@ -139,11 +139,8 @@ export default function TankTreeArchitect() {
       }
     };
     reader.readAsText(file);
-    // Reset input so same file can be selected again if needed
     e.target.value = '';
   };
-
-  // --- Handlers ---
 
   const handleBackgroundClick = () => {
     setSelectedTankId(null);
@@ -151,31 +148,31 @@ export default function TankTreeArchitect() {
   };
 
   const connectTanks = (sourceId, targetId) => {
-    if (sourceId === targetId) return;
+    if (sourceId === targetId) return; 
     const sourceTank = tanks.find(t => t.id === sourceId);
     const targetTank = tanks.find(t => t.id === targetId);
-    if (!sourceTank || !targetTank) return;
+    if(!sourceTank || !targetTank) return;
     if (targetTank.parentIds.includes(sourceId)) {
-      alert("These tanks are already connected.");
-      return;
+        alert("These tanks are already connected.");
+        return;
     }
     setTanks(prev => prev.map(t => {
-      if (t.id === targetId) return { ...t, parentIds: [...t.parentIds, sourceId] };
-      return t;
+        if (t.id === targetId) return { ...t, parentIds: [...t.parentIds, sourceId] };
+        return t;
     }));
   };
 
   const handleDragStart = (e, tank) => {
     if (e.altKey) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (connectionSourceId === null) {
-        setConnectionSourceId(tank.id);
-      } else {
-        if (connectionSourceId !== tank.id) connectTanks(connectionSourceId, tank.id);
-        setConnectionSourceId(null);
-      }
-      return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (connectionSourceId === null) {
+            setConnectionSourceId(tank.id);
+        } else {
+            if (connectionSourceId !== tank.id) connectTanks(connectionSourceId, tank.id);
+            setConnectionSourceId(null);
+        }
+        return;
     }
     e.stopPropagation();
     if (connectionSourceId) setConnectionSourceId(null);
@@ -207,17 +204,17 @@ export default function TankTreeArchitect() {
       dragOverlayRef.current.style.top = `${e.clientY - dragData.current.offsetY}px`;
     }
     if (dragData.current.hasMoved && containerRef.current) {
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      const tierEl = elements.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
-      let newTierId = tierEl ? tierEl.getAttribute('data-tier-id') : dragData.current.currentTierId;
-      const rect = containerRef.current.getBoundingClientRect();
-      let newCol = Math.floor(((e.clientX - dragData.current.offsetX + TANK_WIDTH / 2) - rect.left + containerRef.current.scrollLeft) / COLUMN_WIDTH);
-      if (newCol < 0) newCol = 0;
-      if (newTierId !== dragData.current.currentTierId || newCol !== dragData.current.targetCol) {
-        dragData.current.currentTierId = newTierId;
-        dragData.current.targetCol = newCol;
-        setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newCol }));
-      }
+        const elements = document.elementsFromPoint(e.clientX, e.clientY);
+        const tierEl = elements.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
+        let newTierId = tierEl ? tierEl.getAttribute('data-tier-id') : dragData.current.currentTierId;
+        const rect = containerRef.current.getBoundingClientRect();
+        let newCol = Math.floor(((e.clientX - dragData.current.offsetX + TANK_WIDTH / 2) - rect.left + containerRef.current.scrollLeft) / COLUMN_WIDTH);
+        if (newCol < 0) newCol = 0;
+        if (newTierId !== dragData.current.currentTierId || newCol !== dragData.current.targetCol) {
+          dragData.current.currentTierId = newTierId;
+          dragData.current.targetCol = newCol;
+          setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newCol }));
+        }
     }
   };
 
@@ -265,7 +262,29 @@ export default function TankTreeArchitect() {
     }
   };
 
-  const combinedHandlers = { onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); }, onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id)); if (selectedTankId === id) setSelectedTankId(null); }, onDragStart: handleDragStart, onAddTank: handleAddTank, onDeleteTier: (id) => { if (!tanks.some(t => t.tierId === id)) setTiers(tiers.filter(t => t.id !== id)); } };
+  const handleDeleteTier = (id) => {
+    // 1. Check if it's the last tier
+    const isLast = tiers[tiers.length - 1].id === id;
+    if (!isLast) {
+      alert("You can only delete the last tier.");
+      return;
+    }
+    // 2. Check if it has tanks
+    if (tanks.some(t => t.tierId === id)) {
+      alert("Cannot delete a tier that contains tanks.");
+      return;
+    }
+    setTiers(tiers.filter(t => t.id !== id));
+  };
+
+  const combinedHandlers = { 
+    onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); }, 
+    onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id)); if (selectedTankId === id) setSelectedTankId(null); }, 
+    onDragStart: handleDragStart, 
+    onAddTank: handleAddTank, 
+    onDeleteTier: handleDeleteTier 
+  };
+  
   const draggingTank = draggingState.tankId ? tanks.find(t => t.id === draggingState.tankId) : null;
   const draggingGroup = draggingTank ? groups.find(g => g.id === draggingTank.groupId) : null;
 
@@ -286,63 +305,78 @@ export default function TankTreeArchitect() {
             <h1 className="text-sm font-bold tracking-[0.2em] text-neutral-400 flex items-center gap-2 uppercase"><Shield size={16} /> Tank Tree Architect</h1>
           </div>
           <div className="flex items-center gap-4">
-            {/* Save/Load Controls */}
             <div className="flex items-center gap-2 mr-4 border-r border-neutral-800 pr-4">
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
-              <button onClick={handleLoadClick} className="flex items-center gap-1.5 px-2 py-1 text-neutral-500 hover:text-neutral-200 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm transition-colors">
-                <Upload size={12} /> LOAD
-              </button>
-              <button onClick={handleSaveProject} className="flex items-center gap-1.5 px-2 py-1 text-neutral-500 hover:text-neutral-200 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm transition-colors">
-                <Save size={12} /> SAVE
-              </button>
+               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+               <button onClick={handleLoadClick} className="flex items-center gap-1.5 px-2 py-1 text-neutral-500 hover:text-neutral-200 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm transition-colors">
+                 <Upload size={12} /> LOAD
+               </button>
+               <button onClick={handleSaveProject} className="flex items-center gap-1.5 px-2 py-1 text-neutral-500 hover:text-neutral-200 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm transition-colors">
+                 <Save size={12} /> SAVE
+               </button>
             </div>
-
             {connectionSourceId && (
-              <div className="flex items-center gap-2 text-blue-400 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-blue-900 rounded-sm animate-pulse">
-                <Link2 size={12} /> SELECT TARGET
-              </div>
+                <div className="flex items-center gap-2 text-blue-400 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-blue-900 rounded-sm animate-pulse">
+                    <Link2 size={12} /> SELECT TARGET
+                </div>
             )}
             {Object.keys(conflicts).length > 0 && <div className="flex items-center gap-2 text-red-500 text-[10px] font-bold px-2 py-1 bg-neutral-900 border border-red-900 rounded-sm"><AlertTriangle size={12} /> {Object.keys(conflicts).length} ISSUES</div>}
           </div>
         </div>
-
-        <div
-          ref={containerRef}
-          onClick={handleBackgroundClick}
-          className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-neutral-950"
+        
+        <div 
+            ref={containerRef} 
+            onClick={handleBackgroundClick}
+            className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-neutral-950"
         >
           <div className="min-w-full inline-block pb-20 relative">
             <ConnectionLines tanks={tanks} groups={groups} tankRefs={tankRefs} containerRef={containerRef} draggingState={draggingState} highlightedIds={highlightedIds} />
             <div className="flex flex-col relative z-10 pt-4">
-              {tiers.map(tier => (
+              {tiers.map((tier, index) => (
                 <TierRow
-                  key={tier.id} tier={tier} tanks={tanks.filter(t => t.tierId === tier.id)} groups={groups}
-                  selectedTankId={selectedTankId}
+                  key={tier.id} 
+                  tier={tier} 
+                  tanks={tanks.filter(t => t.tierId === tier.id)} 
+                  groups={groups}
+                  selectedTankId={selectedTankId} 
                   connectionSourceId={connectionSourceId}
-                  highlightedIds={highlightedIds} draggingState={draggingState} conflicts={conflicts}
-                  gridColumns={gridColumns} handlers={combinedHandlers} registerRef={(id, el) => { tankRefs.current[id] = el; }}
+                  highlightedIds={highlightedIds} 
+                  draggingState={draggingState} 
+                  conflicts={conflicts}
+                  gridColumns={gridColumns} 
+                  handlers={combinedHandlers} 
+                  registerRef={(id, el) => { tankRefs.current[id] = el; }}
+                  isLastTier={index === tiers.length - 1} // Check if last tier
                 />
               ))}
-              <div className="w-full flex items-center justify-center py-6">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setTiers([...tiers, { id: generateId(), roman: `T${tiers.length + 1}`, index: tiers.length }]); }}
-                  className="group flex items-center gap-2 px-6 py-2 bg-neutral-950 border border-dashed border-neutral-800 hover:border-neutral-600 hover:bg-neutral-900 rounded-sm transition-all"
-                >
-                  <Plus size={14} className="text-neutral-600 group-hover:text-neutral-300" /><span className="text-xs text-neutral-600 font-medium group-hover:text-neutral-300 uppercase tracking-wide">Add Tier</span>
-                </button>
+              
+              {/* Add Tier Button Row */}
+              <div className="flex relative min-h-[40px] border-b border-transparent">
+                  {/* Left Column for Button */}
+                  <div className="w-16 flex-shrink-0 bg-neutral-950/50 border-r border-neutral-800/20 flex flex-col items-center justify-start pt-4 z-10 sticky left-0">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setTiers([...tiers, { id: generateId(), roman: `T${tiers.length + 1}`, index: tiers.length }]); }} 
+                        className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm text-neutral-500 hover:text-green-500 transition-all shadow-md group/add"
+                        title="Add New Tier"
+                    >
+                        <Plus size={16} />
+                    </button>
+                  </div>
+                  {/* Empty Right Side */}
+                  <div className="flex-1"></div>
               </div>
+
             </div>
 
             {draggingState.isDragging && draggingTank && (
-              <div
-                ref={dragOverlayRef}
-                className="fixed pointer-events-none z-[9999]"
-                style={{ width: TANK_WIDTH, left: dragData.current.startX - dragData.current.offsetX, top: dragData.current.startY - dragData.current.offsetY }}
+              <div 
+                  ref={dragOverlayRef}
+                  className="fixed pointer-events-none z-[9999]"
+                  style={{ width: TANK_WIDTH, left: dragData.current.startX - dragData.current.offsetX, top: dragData.current.startY - dragData.current.offsetY }}
               >
-                <TankCard tank={draggingTank} group={draggingGroup} isSelected={true} styleOverride={{ position: 'static' }} />
+                  <TankCard tank={draggingTank} group={draggingGroup} isSelected={true} styleOverride={{ position: 'static' }} />
               </div>
             )}
-
+            
           </div>
         </div>
       </div>
