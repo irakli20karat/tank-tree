@@ -451,7 +451,7 @@ export default function TankTreeArchitect() {
         <div className="h-12 border-b border-neutral-800 flex items-center px-4 justify-between bg-neutral-950 z-20">
           <div className="flex items-center gap-4">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 bg-neutral-900 border border-neutral-800 rounded-sm hover:bg-neutral-800"><Settings size={16} /></button>}
-            <h1 className="text-sm font-bold tracking-[0.2em] text-neutral-400 flex items-center gap-2 uppercase"><Shield size={16} /> Tank Tree Architect</h1>
+            <h1 className="text-sm font-bold tracking-[0.2em] text-neutral-400 flex items-center gap-2 uppercase"><Shield size={16} /> Tank Tree Architect (by Blackjader)</h1>
             <div className="h-6 w-px bg-neutral-800 mx-2"></div>
             <button
               onClick={() => setLayoutMode(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
