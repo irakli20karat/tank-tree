@@ -103,20 +103,42 @@ const TierRow = ({ tier, tanks, groups, selectedTankId, connectionSourceId, high
 };
 
 export default function TankTreeArchitect() {
-  const [tiers, setTiers] = useState([
-    { id: 'tier-1', roman: 'I', index: 0 },
-    { id: 'tier-2', roman: 'II', index: 1 },
-    { id: 'tier-3', roman: 'III', index: 2 },
-    { id: 'tier-4', roman: 'IV', index: 3 },
-    { id: 'tier-5', roman: 'V', index: 4 },
-    { id: 'tier-6', roman: 'VI', index: 5 },
-    { id: 'tier-7', roman: 'VII', index: 6 },
-    { id: 'tier-8', roman: 'VIII', index: 7 },
-    { id: 'tier-9', roman: 'IX', index: 8 },
-    { id: 'tier-10', roman: 'X', index: 9 },
-    { id: 'tier-11', roman: 'XI', index: 10 },
-    { id: 'tier-12', roman: 'XII', index: 11 }
-  ]);
+  const toRoman = (num) => {
+    const map = [
+      { val: 1000, sym: "M" },
+      { val: 900, sym: "CM" },
+      { val: 500, sym: "D" },
+      { val: 400, sym: "CD" },
+      { val: 100, sym: "C" },
+      { val: 90, sym: "XC" },
+      { val: 50, sym: "L" },
+      { val: 40, sym: "XL" },
+      { val: 10, sym: "X" },
+      { val: 9, sym: "IX" },
+      { val: 5, sym: "V" },
+      { val: 4, sym: "IV" },
+      { val: 1, sym: "I" },
+    ];
+
+    let result = "";
+    for (let { val, sym } of map) {
+      while (num >= val) {
+        result += sym;
+        num -= val;
+      }
+    }
+    return result;
+  };
+
+  const generateTiers = (count) => {
+    return Array.from({ length: count }, (_, i) => ({
+      id: `tier-${i + 1}`,
+      roman: toRoman(i + 1),
+      index: i
+    }));
+  };
+
+  const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState([
     { id: 't1', name: 'MS-1', tierId: 'tier-1', image: null, parentIds: [], groupId: 'g_lt', xpCost: 0, columnIndex: 2 },
@@ -133,8 +155,7 @@ export default function TankTreeArchitect() {
   const fileInputRef = useRef(null);
 
   const maxColumnIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
-  // REDUCED BUFFER: Changed from +6 to +3 to prevent excessive width forcing scrollbars
-  const gridColumns = Math.max(maxColumnIndex + 6, 6);
+  const gridColumns = Math.max(maxColumnIndex + 3, 6);
 
   const highlightedIds = useMemo(() => selectedTankId ? getAllConnectedIds(selectedTankId, tanks) : null, [selectedTankId, tanks]);
   const conflicts = useMemo(() => {
@@ -179,19 +200,53 @@ export default function TankTreeArchitect() {
     e.target.value = '';
   };
   const handleBackgroundClick = () => { setSelectedTankId(null); setConnectionSourceId(null); };
-  const connectTanks = (sourceId, targetId) => {
+
+  // --- UPDATED CONNECTION LOGIC ---
+  const toggleConnection = (sourceId, targetId) => {
     if (sourceId === targetId) return;
+
     const sourceTank = tanks.find(t => t.id === sourceId);
     const targetTank = tanks.find(t => t.id === targetId);
+
     if (!sourceTank || !targetTank) return;
-    if (targetTank.parentIds.includes(sourceId)) { alert("These tanks are already connected."); return; }
-    setTanks(prev => prev.map(t => { if (t.id === targetId) return { ...t, parentIds: [...t.parentIds, sourceId] }; return t; }));
+
+    // Check if connected (Direction: Source is parent of Target)
+    if (targetTank.parentIds.includes(sourceId)) {
+      // Disconnect
+      setTanks(prev => prev.map(t => {
+        if (t.id === targetId) return { ...t, parentIds: t.parentIds.filter(id => id !== sourceId) };
+        return t;
+      }));
+      return;
+    }
+
+    // Check if connected (Direction: Target is parent of Source) - allowing bi-directional breaking
+    if (sourceTank.parentIds.includes(targetId)) {
+      // Disconnect
+      setTanks(prev => prev.map(t => {
+        if (t.id === sourceId) return { ...t, parentIds: t.parentIds.filter(id => id !== targetId) };
+        return t;
+      }));
+      return;
+    }
+
+    // If not connected, Connect (Source becomes Parent of Target)
+    setTanks(prev => prev.map(t => {
+      if (t.id === targetId) return { ...t, parentIds: [...t.parentIds, sourceId] };
+      return t;
+    }));
   };
+
   const handleDragStart = (e, tank) => {
     if (e.altKey) {
       e.preventDefault(); e.stopPropagation();
-      if (connectionSourceId === null) { setConnectionSourceId(tank.id); }
-      else { if (connectionSourceId !== tank.id) connectTanks(connectionSourceId, tank.id); setConnectionSourceId(null); }
+      if (connectionSourceId === null) {
+        setConnectionSourceId(tank.id);
+      } else {
+        // Changed connectTanks to toggleConnection
+        if (connectionSourceId !== tank.id) toggleConnection(connectionSourceId, tank.id);
+        setConnectionSourceId(null);
+      }
       return;
     }
     e.stopPropagation(); if (connectionSourceId) setConnectionSourceId(null);
@@ -200,6 +255,7 @@ export default function TankTreeArchitect() {
     dragData.current = { startX: e.clientX, startY: e.clientY, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, tankId: tank.id, currentTierId: tank.tierId, targetCol: tank.columnIndex, hasMoved: false };
     window.addEventListener('mousemove', handleDragMove); window.addEventListener('mouseup', handleDragEnd);
   };
+
   const handleDragMove = (e) => {
     if (!dragData.current.hasMoved) {
       const dist = Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY);
@@ -292,9 +348,8 @@ export default function TankTreeArchitect() {
         <div
           ref={containerRef}
           onClick={handleBackgroundClick}
-          className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-neutral-950"
+          className="flex-1 overflow-auto relative"
         >
-          {/* Changed min-w-full inline-block to min-w-full h-full to prevent flexbox quirks during resizing */}
           <div className="min-w-full h-full pb-20 relative">
             <ConnectionLines tanks={tanks} groups={groups} tankRefs={tankRefs} containerRef={containerRef} draggingState={draggingState} highlightedIds={highlightedIds} />
             <div className="flex flex-col relative z-10 pt-4">
@@ -318,7 +373,7 @@ export default function TankTreeArchitect() {
               <div className="flex relative min-h-[40px] border-b border-transparent">
                 <div className="w-16 flex-shrink-0 bg-neutral-950/50 border-r border-neutral-800/20 flex flex-col items-center justify-start pt-4 z-10 sticky left-0">
                   <button
-                    onClick={(e) => { e.stopPropagation(); setTiers([...tiers, { id: generateId(), roman: `T${tiers.length + 1}`, index: tiers.length }]); }}
+                    onClick={(e) => { e.stopPropagation(); setTiers([...tiers, { id: generateId(), roman: toRoman(tiers.length + 1), index: tiers.length }]); }}
                     className="p-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm text-neutral-500 hover:text-green-500 transition-all shadow-md group/add"
                     title="Add New Tier"
                   >
