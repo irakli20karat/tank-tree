@@ -61,7 +61,7 @@ export default function DocsModal({ isOpen, onClose }) {
                 <h4 className="font-bold text-blue-100">Creating Connections (Parents/Children)</h4>
                 <p className="text-sm text-neutral-300 mt-2">
                   Hold <kbd className="px-2 py-0.5 bg-neutral-800 border border-neutral-700 rounded text-xs font-mono text-neutral-200 mx-1">Alt</kbd>
-                  while dragging a tank to initiate a connection line.
+                  while clicking on a tank to initiate a connection line.
                 </p>
                 <ul className="list-disc list-inside text-xs text-neutral-400 mt-2 space-y-1">
                   <li>Hold Alt + Click on <strong>Parent</strong> and then click on <strong>Child</strong> to link them..</li>
