@@ -1,0 +1,111 @@
+import React from 'react';
+import { AlertTriangle, X } from 'lucide-react';
+import { TANK_WIDTH, GroupIcon } from '../utils';
+
+const TankCard = ({
+  tank,
+  group,
+  isSelected,
+  isHighlighted,
+  onEdit,
+  onDelete,
+  onMouseDown,
+  isDragging,
+  conflictType,
+  setRef
+}) => {
+  const mainColor = group?.color || '#525252';
+  let borderColor = isSelected ? '#fbbf24' : '#262626';
+  let bgColor = '#0a0a0a';
+
+  if (isSelected) {
+    borderColor = '#fbbf24';
+    bgColor = '#171717';
+  } else if (isHighlighted) {
+    borderColor = mainColor;
+    bgColor = `${mainColor}10`;
+  } else {
+    borderColor = '#262626';
+  }
+
+  if (conflictType === 'overlap') {
+    borderColor = '#dc2626';
+    bgColor = '#450a0a';
+  } else if (conflictType === 'blocker') {
+    borderColor = '#ea580c';
+    bgColor = '#431407';
+  }
+
+  const style = {
+    gridColumnStart: (tank.columnIndex || 0) + 1,
+    gridRowStart: 1,
+    zIndex: isSelected ? 20 : (isHighlighted ? 15 : 10),
+    borderColor: borderColor,
+    backgroundColor: bgColor
+  };
+
+  if (isDragging) {
+    style.position = 'fixed';
+    style.zIndex = 1000;
+    style.pointerEvents = 'none';
+    style.width = `${TANK_WIDTH}px`;
+    style.opacity = 0.9;
+  }
+
+  return (
+    <div
+      ref={setRef}
+      onMouseDown={(e) => onMouseDown(e, tank)}
+      onDoubleClick={(e) => { e.stopPropagation(); onEdit(tank); }}
+      style={style}
+      className={`
+        relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
+        border rounded-sm
+        ${!isDragging ? 'hover:scale-[1.02] cursor-grab active:cursor-grabbing' : ''}
+      `}
+    >
+      {conflictType && !isDragging && (
+        <div className={`absolute -top-3 left-1/2 transform -translate-x-1/2 text-[9px] font-bold px-2 rounded-sm flex items-center gap-1 z-50 whitespace-nowrap border
+          ${conflictType === 'overlap' ? 'bg-black border-red-500 text-red-500' : 'bg-black border-orange-500 text-orange-500'}
+        `}>
+          <AlertTriangle size={8} />
+          {conflictType === 'overlap' ? 'OVERLAP' : 'BLOCK'}
+        </div>
+      )}
+
+      <div className="h-20 w-full relative border-b border-neutral-800 bg-black/40">
+        {tank.image ? (
+          <img src={tank.image} alt={tank.name} className="w-full h-full object-cover pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center opacity-20">
+            <GroupIcon icon={group?.icon} color={mainColor} size={32} />
+          </div>
+        )}
+        <div className="absolute top-0 right-0 bg-neutral-900 border-l border-b border-neutral-800 p-1.5">
+          <GroupIcon icon={group?.icon} color={mainColor} size={12} />
+        </div>
+      </div>
+
+      <div className="p-2 text-center w-full">
+        <h3
+          className="text-xs font-medium truncate w-full font-mono mb-1"
+          style={{ color: isSelected ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4') }}
+        >
+          {tank.name || 'Unnamed'}
+        </h3>
+        <p className="text-[10px] text-neutral-600 font-mono">XP: {tank.xpCost || 0}</p>
+      </div>
+
+      {!isDragging && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(tank.id); }}
+          className="absolute -top-2 -right-2 p-1 bg-neutral-900 border border-neutral-800 text-neutral-500 hover:text-red-500 hover:border-red-900 opacity-0 group-hover:opacity-100 transition-all rounded-sm z-30"
+        >
+          <X size={10} />
+        </button>
+      )}
+    </div>
+  );
+};
+
+export default TankCard;
