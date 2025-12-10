@@ -1,7 +1,6 @@
 import { useState, useLayoutEffect } from 'react';
 import { doSegmentsIntersect } from '../utils';
 
-// Helper: Check if line intersects a rectangle
 const intersectsRect = (p1, p2, rect, padding = 5) => {
     const minX = Math.min(p1.x, p2.x);
     const maxX = Math.max(p1.x, p2.x);
@@ -24,8 +23,6 @@ const intersectsRect = (p1, p2, rect, padding = 5) => {
     return true;
 };
 
-// --- Pathfinding Logic ---
-
 const checkPathCollision = (points, obstacles, parentId, childId) => {
     for (let i = 0; i < points.length - 1; i++) {
         const p1 = points[i];
@@ -43,15 +40,11 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
 
     if (orientation === 'vertical') {
         const midY = (start.y + end.y) / 2;
-        // Standard Mid-Split Vertical
         candidates.push([{ x: start.x, y: start.y }, { x: start.x, y: midY }, { x: end.x, y: midY }, { x: end.x, y: end.y }]);
-        // (Keep existing vertical candidates...)
         candidates.push([{ x: start.x, y: start.y }, { x: start.x, y: start.y + 20 }, { x: end.x, y: start.y + 20 }, { x: end.x, y: end.y }]);
     } else {
-        // HORIZONTAL LOGIC
         const midX = (start.x + end.x) / 2;
 
-        // A. Standard Mid-Split Horizontal
         candidates.push([
             { x: start.x, y: start.y },
             { x: midX, y: start.y },
@@ -59,7 +52,6 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
             { x: end.x, y: end.y }
         ]);
 
-        // B. Early Turn (close to parent)
         candidates.push([
             { x: start.x, y: start.y },
             { x: start.x + 20, y: start.y },
@@ -67,7 +59,6 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
             { x: end.x, y: end.y }
         ]);
 
-        // C. Late Turn (close to child)
         candidates.push([
             { x: start.x, y: start.y },
             { x: end.x - 20, y: start.y },
@@ -84,7 +75,6 @@ const calculatePath = (start, end, obstacles, parentId, childId, orientation) =>
         if (!firstBlocker) firstBlocker = blocker;
     }
 
-    // Fallback: Robust Detour
     if (firstBlocker && orientation === 'vertical') {
         const bRect = firstBlocker.rect;
         const PAD = 25;
@@ -134,7 +124,6 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
             const obstacleMap = new Map();
             const rectMap = new Map();
 
-            // 1. Build Maps
             tanks.forEach(t => {
                 const el = tankRefs.current[t.id];
                 if (el) {
@@ -168,8 +157,6 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                     let startSide, endSide, orientation;
 
                     if (isHorizontal) {
-                        // Horizontal Logic: Parent is usually to the Left, Child to the Right
-                        // Check if child is significantly to the right
                         const isChildRight = cRect.left > pRect.right + 20;
                         const isChildLeft = pRect.left > cRect.right + 20;
 
@@ -178,11 +165,9 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                         } else if (isChildLeft) {
                             startSide = 'left'; endSide = 'right'; orientation = 'horizontal';
                         } else {
-                            // Stacked vertically in horizontal mode (fallback)
                             startSide = 'bottom'; endSide = 'top'; orientation = 'vertical';
                         }
                     } else {
-                        // Vertical Logic (Original)
                         const verticalGap = cRect.top - pRect.bottom;
                         const isChildBelow = verticalGap > 20;
                         const isChildAbove = pRect.top - cRect.bottom > 20;
@@ -214,17 +199,14 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
             const generatedLines = [];
             const OFFSET_STEP = 10;
 
-            // 3. Generate Lines with offsets calculated only within specific ports
             allConnections.forEach(conn => {
-                // ... (Keep existing sorting and offset logic)
                 const parentTank = tanks.find(t => t.id === conn.parentId);
                 const pKey = `${conn.parentId}-${conn.startSide}`;
                 const siblingsAtParent = parentPorts[pKey];
 
-                // IMPORTANT: Sort order changes based on orientation
                 siblingsAtParent.sort((a, b) => {
                     if (conn.orientation === 'vertical') return a.cRect.centerX - b.cRect.centerX;
-                    return a.cRect.centerY - b.cRect.centerY; // Sort by Y for horizontal lines
+                    return a.cRect.centerY - b.cRect.centerY;
                 });
 
                 const pIndex = siblingsAtParent.indexOf(conn);
@@ -239,13 +221,11 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 const cIndex = siblingsAtChild.indexOf(conn);
                 const cOffset = (cIndex - (siblingsAtChild.length - 1) / 2) * OFFSET_STEP;
 
-                // --- Define Start/End Points ---
                 let start = { x: 0, y: 0 };
                 let end = { x: 0, y: 0 };
                 const pRect = conn.pRect;
                 const cRect = conn.cRect;
 
-                // Map sides to coords
                 if (conn.startSide === 'bottom') start = { x: pRect.centerX + pOffset, y: pRect.bottom };
                 else if (conn.startSide === 'top') start = { x: pRect.centerX + pOffset, y: pRect.top };
                 else if (conn.startSide === 'right') start = { x: pRect.right, y: pRect.centerY + pOffset };
@@ -267,7 +247,6 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 });
             });
 
-            // 4. Intersection Check
             const crossings = new Set();
             for (let i = 0; i < generatedLines.length; i++) {
                 for (let j = i + 1; j < generatedLines.length; j++) {

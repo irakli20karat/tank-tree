@@ -38,18 +38,15 @@ const Sidebar = ({
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
                 {selectedTank ? (
                     <>
-                        {/* Image Input */}
                         <div className="space-y-2">
                             <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Preview & Image</label>
 
-                            {/* File Upload Box */}
                             <div className="h-32 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors relative overflow-hidden group" onClick={() => document.getElementById('tank-image-upload').click()}>
                                 {selectedTank.image ? <img src={selectedTank.image} alt="Preview" className="w-full h-full object-cover" /> : <div className="flex flex-col items-center text-neutral-600"><Upload size={20} className="mb-2" /><span className="text-xs">Click to Upload File</span></div>}
                                 <input id="tank-image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 {selectedTank.image && <button onClick={(e) => { e.stopPropagation(); updateTank(selectedTank.id, 'image', null); }} className="absolute top-2 right-2 p-1 bg-neutral-900 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm"><Trash2 size={12} /></button>}
                             </div>
 
-                            {/* URL Input */}
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                                     <Globe size={12} className="text-neutral-600" />
@@ -64,7 +61,6 @@ const Sidebar = ({
                             </div>
                         </div>
 
-                        {/* Basic Info */}
                         <div className="space-y-3">
                             <div className="space-y-1">
                                 <label className="text-[10px] font-bold text-neutral-500 uppercase">Name</label>
@@ -100,7 +96,6 @@ const Sidebar = ({
                             </div>
                         </div>
 
-                        {/* Position */}
                         <div className="p-3 bg-neutral-800/30 rounded-sm border border-neutral-800">
                             <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-2 mb-2">
                                 <MoveHorizontal size={12} /> Grid Position
@@ -112,7 +107,6 @@ const Sidebar = ({
                             </div>
                         </div>
 
-                        {/* Relationships */}
                         <div className="space-y-2 pt-4 border-t border-neutral-800">
                             <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-2"><Network size={12} /> Parents</label>
                             <div className="space-y-1 mb-3">

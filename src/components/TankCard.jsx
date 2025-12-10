@@ -17,7 +17,6 @@ const TankCard = ({
 }) => {
     const mainColor = group?.color || '#525252';
 
-    // Selection Styles
     let borderColor = isSelected ? '#fbbf24' : '#262626';
     let bgColor = '#0a0a0a';
 
@@ -32,7 +31,6 @@ const TankCard = ({
         bgColor = `${mainColor}10`;
     }
 
-    // Conflict Styles
     if (conflictType === 'overlap') {
         borderColor = '#dc2626';
         bgColor = '#450a0a';
@@ -41,7 +39,6 @@ const TankCard = ({
         bgColor = '#431407';
     }
 
-    // Base Style
     const style = {
         gridColumnStart: (tank.columnIndex || 0) + 1,
         gridRowStart: 1,
@@ -57,7 +54,7 @@ const TankCard = ({
         <div
             ref={setRef}
             onMouseDown={(e) => onMouseDown && onMouseDown(e, tank)}
-            onClick={(e) => e.stopPropagation()} // Stop click from bubbling to background
+            onClick={(e) => e.stopPropagation()}
             onDoubleClick={(e) => { e.stopPropagation(); onEdit && onEdit(tank); }}
             style={style}
             className={`
@@ -66,14 +63,12 @@ const TankCard = ({
                 ${!isDragging && !styleOverride.position ? 'hover:scale-[1.02] cursor-grab active:cursor-grabbing' : ''}
             `}
         >
-            {/* Connection Mode Badge */}
             {isConnectionSource && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 text-[9px] font-bold px-2 rounded-sm flex items-center gap-1 z-50 whitespace-nowrap border bg-black border-blue-500 text-blue-500">
                     <Link2 size={8} /> LINKING...
                 </div>
             )}
 
-            {/* Conflict Badge */}
             {conflictType && !styleOverride.position && !isConnectionSource && (
                 <div className={`absolute -top-3 left-1/2 transform -translate-x-1/2 text-[9px] font-bold px-2 rounded-sm flex items-center gap-1 z-50 whitespace-nowrap border
                     ${conflictType === 'overlap' ? 'bg-black border-red-500 text-red-500' : 'bg-black border-orange-500 text-orange-500'}
@@ -83,7 +78,6 @@ const TankCard = ({
                 </div>
             )}
 
-            {/* Image Area */}
             <div className="h-20 w-full relative border-b border-neutral-800 bg-black/40">
                 {tank.image ? (
                     <img src={tank.image} alt={tank.name} className="w-full h-full object-cover pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity" />
@@ -97,7 +91,6 @@ const TankCard = ({
                 </div>
             </div>
 
-            {/* Info Area */}
             <div className="p-2 text-center w-full">
                 <h3
                     className="text-xs font-medium truncate w-full font-mono mb-1"
@@ -108,7 +101,6 @@ const TankCard = ({
                 <p className="text-[10px] text-neutral-600 font-mono">XP: {tank.xpCost || 0}</p>
             </div>
 
-            {/* Delete Button */}
             {!isDragging && !styleOverride.position && onDelete && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete(tank.id); }}
