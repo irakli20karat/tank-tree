@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import {
   Plus, Trash2, Settings, Shield, AlertTriangle, Link2, Upload, Save,
-  GalleryVertical, GalleryHorizontal // Import new icons
+  GalleryVertical, GalleryHorizontal
 } from 'lucide-react';
 import { generateId, DEFAULT_GROUPS, COLUMN_WIDTH, TANK_WIDTH, getAllConnectedIds } from './utils';
 import TankCard from './components/TankCard';
@@ -26,8 +26,6 @@ const TierZone = ({
     if (draggingState.isDragging) return;
     if (zoneRef.current) {
       const rect = zoneRef.current.getBoundingClientRect();
-
-      // Calculate index based on orientation
       let index;
       if (isHorizontal) {
         const y = e.clientY - rect.top;
@@ -36,7 +34,6 @@ const TierZone = ({
         const x = e.clientX - rect.left;
         index = Math.floor(x / COLUMN_WIDTH);
       }
-
       if (index >= 0 && index < gridCapacity) {
         setHoverIndex(index);
       } else {
@@ -51,9 +48,8 @@ const TierZone = ({
 
   const isOccupied = tanks.some(t => t.columnIndex === hoverIndex);
 
-  // Dynamic Styles based on orientation
   const containerClass = isHorizontal
-    ? "flex-col h-full min-w-[200px] border-r border-neutral-800/50 last:border-0"
+    ? "flex-col h-full min-w-[220px] border-r border-neutral-800/50 last:border-0"
     : "flex-row w-full min-h-[160px] border-b border-neutral-800/50 last:border-0";
 
   const headerClass = isHorizontal
@@ -72,6 +68,9 @@ const TierZone = ({
       height: '100%'
     };
 
+  // Helper to center placeholder
+  const TANK_HEIGHT = 120; // Matches the hardcoded height in the placeholder div
+
   return (
     <div
       id={`tier-${tier.id}`}
@@ -80,7 +79,6 @@ const TierZone = ({
         ${isTargetTier && draggingState.isDragging ? 'bg-neutral-900/30' : 'hover:bg-neutral-900/10'}
       `}
     >
-      {/* Tier Header Label */}
       <div className={`flex-shrink-0 bg-neutral-950 flex items-center justify-center z-10 sticky top-0 left-0 shadow-sm ${headerClass}`}>
         <span className="text-xl font-bold text-neutral-700 font-serif select-none">{tier.roman}</span>
         <div className={`flex gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity ${isHorizontal ? 'ml-auto' : 'mt-3 flex-col'}`}>
@@ -96,7 +94,6 @@ const TierZone = ({
         </div>
       </div>
 
-      {/* Grid Area */}
       <div className="relative flex-1">
         <div
           ref={zoneRef}
@@ -105,15 +102,24 @@ const TierZone = ({
           className="grid items-center p-4 relative"
           style={{ ...gridStyle, gap: '0' }}
         >
-          {/* Drag Placeholder */}
           {draggingState.isDragging && isTargetTier && (
             <div
               className="absolute border border-dashed border-neutral-600 rounded-sm flex items-center justify-center text-neutral-600 font-mono text-[10px] uppercase pointer-events-none"
               style={{
                 width: TANK_WIDTH,
-                height: 120, // Approx tank card height
-                left: isHorizontal ? '16px' : `${(draggingState.targetCol * COLUMN_WIDTH) + 16 + (COLUMN_WIDTH - TANK_WIDTH) / 2}px`,
-                top: isHorizontal ? `${(draggingState.targetCol * ROW_HEIGHT) + 16}px` : '16px'
+                height: TANK_HEIGHT,
+
+                // --- FIXED POSITIONING LOGIC ---
+                left: isHorizontal
+                  ? '50%' // Center in the vertical column
+                  : `${(draggingState.targetCol * COLUMN_WIDTH) + 16 + (COLUMN_WIDTH - TANK_WIDTH) / 2}px`,
+
+                top: isHorizontal
+                  ? `${(draggingState.targetCol * ROW_HEIGHT) + 16 + (ROW_HEIGHT - TANK_HEIGHT) / 2}px` // Center vertically in the slot
+                  : '16px',
+
+                transform: isHorizontal ? 'translateX(-50%)' : 'none'
+                // ------------------------------
               }}
             >Move Here</div>
           )}
@@ -132,7 +138,6 @@ const TierZone = ({
               setRef={(el) => registerRef(tank.id, el)}
               isDragging={draggingState.isDragging && draggingState.tankId === tank.id}
               conflictType={conflicts[tank.id]}
-              // In horizontal mode, we interpret columnIndex as rowIndex
               styleOverride={isHorizontal ? {
                 gridRowStart: (tank.columnIndex || 0) + 1,
                 gridColumnStart: 1,
@@ -141,18 +146,19 @@ const TierZone = ({
             />
           ))}
 
-          {/* Add Button Ghost */}
           {!draggingState.isDragging && hoverIndex !== null && !isOccupied && (
             <div
               onClick={(e) => { e.stopPropagation(); handlers.onAddTank(tier.id, hoverIndex); }}
               className="group flex flex-col items-center justify-center border border-dashed border-neutral-800 bg-neutral-950/50 hover:border-neutral-500 hover:bg-neutral-900 rounded-sm cursor-pointer transition-all z-0"
               style={{
-                width: '144px', height: '128px', // Hardcoded roughly to match card size
+                width: '144px', height: '128px',
+                // Also center the "Add" button
                 gridColumnStart: isHorizontal ? 1 : hoverIndex + 1,
                 gridRowStart: isHorizontal ? hoverIndex + 1 : 1,
-                marginLeft: isHorizontal ? 'auto' : '16px',
-                marginRight: isHorizontal ? 'auto' : '0',
-                marginTop: isHorizontal ? '16px' : '0'
+                justifySelf: isHorizontal ? 'center' : 'start',
+                marginLeft: isHorizontal ? '0' : '16px', // Removed auto margin for clean grid centering
+                marginRight: isHorizontal ? '0' : '0',
+                marginTop: isHorizontal ? '16px' : '0' // Keep vertical spacing in horizontal mode
               }}
             >
               <Plus className="text-neutral-700 group-hover:text-neutral-400 transition-colors" size={24} />
@@ -167,38 +173,20 @@ const TierZone = ({
 export default function TankTreeArchitect() {
   const toRoman = (num) => {
     const map = [
-      { val: 1000, sym: "M" },
-      { val: 900, sym: "CM" },
-      { val: 500, sym: "D" },
-      { val: 400, sym: "CD" },
-      { val: 100, sym: "C" },
-      { val: 90, sym: "XC" },
-      { val: 50, sym: "L" },
-      { val: 40, sym: "XL" },
-      { val: 10, sym: "X" },
-      { val: 9, sym: "IX" },
-      { val: 5, sym: "V" },
-      { val: 4, sym: "IV" },
-      { val: 1, sym: "I" },
+      { val: 1000, sym: "M" }, { val: 900, sym: "CM" }, { val: 500, sym: "D" }, { val: 400, sym: "CD" },
+      { val: 100, sym: "C" }, { val: 90, sym: "XC" }, { val: 50, sym: "L" }, { val: 40, sym: "XL" },
+      { val: 10, sym: "X" }, { val: 9, sym: "IX" }, { val: 5, sym: "V" }, { val: 4, sym: "IV" }, { val: 1, sym: "I" },
     ];
-
     let result = "";
     for (let { val, sym } of map) {
-      while (num >= val) {
-        result += sym;
-        num -= val;
-      }
+      while (num >= val) { result += sym; num -= val; }
     }
     return result;
   };
 
-  const generateTiers = (count) => {
-    return Array.from({ length: count }, (_, i) => ({
-      id: `tier-${i + 1}`,
-      roman: toRoman(i + 1),
-      index: i
-    }));
-  };
+  const generateTiers = (count) => Array.from({ length: count }, (_, i) => ({
+    id: `tier-${i + 1}`, roman: toRoman(i + 1), index: i
+  }));
 
   const [layoutMode, setLayoutMode] = useState('vertical');
   const [tiers, setTiers] = useState(generateTiers(5));
@@ -211,6 +199,7 @@ export default function TankTreeArchitect() {
   const [connectionSourceId, setConnectionSourceId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [draggingState, setDraggingState] = useState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
+
   const tankRefs = useRef({});
   const containerRef = useRef(null);
   const dragOverlayRef = useRef(null);
@@ -221,6 +210,7 @@ export default function TankTreeArchitect() {
   const gridCapacity = Math.max(maxIndex + 3, 6);
 
   const highlightedIds = useMemo(() => selectedTankId ? getAllConnectedIds(selectedTankId, tanks) : null, [selectedTankId, tanks]);
+
   const conflicts = useMemo(() => {
     const conflictsMap = {};
     const posMap = new Map();
@@ -233,92 +223,76 @@ export default function TankTreeArchitect() {
     return conflictsMap;
   }, [tanks, tiers]);
 
+  // --- ACTIONS ---
   const handleSaveProject = () => {
     const projectData = { version: "1.0", timestamp: new Date().toISOString(), tiers, groups, tanks };
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `tank-tree-project-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const a = document.createElement('a'); a.href = url; a.download = `tank-tree.json`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
   const handleLoadClick = () => fileInputRef.current?.click();
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (ev) => {
       try {
-        const data = JSON.parse(event.target.result);
+        const data = JSON.parse(ev.target.result);
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers); setGroups(data.groups); setTanks(data.tanks);
           setSelectedTankId(null); setConnectionSourceId(null);
-        } else { alert("Invalid project file format."); }
-      } catch (err) { console.error(err); alert("Failed to parse project file."); }
+        }
+      } catch (err) { console.error(err); alert("Failed to parse."); }
     };
-    reader.readAsText(file);
-    e.target.value = '';
+    reader.readAsText(file); e.target.value = '';
   };
   const handleBackgroundClick = () => { setSelectedTankId(null); setConnectionSourceId(null); };
 
-  // --- UPDATED CONNECTION LOGIC ---
   const toggleConnection = (sourceId, targetId) => {
     if (sourceId === targetId) return;
-
     const sourceTank = tanks.find(t => t.id === sourceId);
     const targetTank = tanks.find(t => t.id === targetId);
-
     if (!sourceTank || !targetTank) return;
-
-    // Check if connected (Direction: Source is parent of Target)
     if (targetTank.parentIds.includes(sourceId)) {
-      // Disconnect
-      setTanks(prev => prev.map(t => {
-        if (t.id === targetId) return { ...t, parentIds: t.parentIds.filter(id => id !== sourceId) };
-        return t;
-      }));
+      setTanks(prev => prev.map(t => t.id === targetId ? { ...t, parentIds: t.parentIds.filter(id => id !== sourceId) } : t));
       return;
     }
-
-    // Check if connected (Direction: Target is parent of Source) - allowing bi-directional breaking
     if (sourceTank.parentIds.includes(targetId)) {
-      // Disconnect
-      setTanks(prev => prev.map(t => {
-        if (t.id === sourceId) return { ...t, parentIds: t.parentIds.filter(id => id !== targetId) };
-        return t;
-      }));
+      setTanks(prev => prev.map(t => t.id === sourceId ? { ...t, parentIds: t.parentIds.filter(id => id !== targetId) } : t));
       return;
     }
-
-    // If not connected, Connect (Source becomes Parent of Target)
-    setTanks(prev => prev.map(t => {
-      if (t.id === targetId) return { ...t, parentIds: [...t.parentIds, sourceId] };
-      return t;
-    }));
+    setTanks(prev => prev.map(t => t.id === targetId ? { ...t, parentIds: [...t.parentIds, sourceId] } : t));
   };
 
   const handleDragStart = (e, tank) => {
     if (e.altKey) {
       e.preventDefault(); e.stopPropagation();
-      if (connectionSourceId === null) {
-        setConnectionSourceId(tank.id);
-      } else {
-        // Changed connectTanks to toggleConnection
-        if (connectionSourceId !== tank.id) toggleConnection(connectionSourceId, tank.id);
-        setConnectionSourceId(null);
-      }
+      if (connectionSourceId === null) setConnectionSourceId(tank.id);
+      else { if (connectionSourceId !== tank.id) toggleConnection(connectionSourceId, tank.id); setConnectionSourceId(null); }
       return;
     }
-    e.stopPropagation(); if (connectionSourceId) setConnectionSourceId(null);
+    e.stopPropagation();
+    if (connectionSourceId) setConnectionSourceId(null);
     const el = tankRefs.current[tank.id];
     const rect = el.getBoundingClientRect();
-    dragData.current = { startX: e.clientX, startY: e.clientY, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, tankId: tank.id, currentTierId: tank.tierId, targetCol: tank.columnIndex, hasMoved: false };
-    window.addEventListener('mousemove', handleDragMove); window.addEventListener('mouseup', handleDragEnd);
+
+    dragData.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+      tankId: tank.id,
+      currentTierId: tank.tierId,
+      targetCol: tank.columnIndex,
+      hasMoved: false
+    };
+
+    window.addEventListener('mousemove', handleDragMove);
+    window.addEventListener('mouseup', handleDragEnd);
   };
 
+  // --- FIXED DRAG MOVE HANDLER ---
   const handleDragMove = (e) => {
     if (!dragData.current.hasMoved) {
       const dist = Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY);
@@ -333,37 +307,81 @@ export default function TankTreeArchitect() {
     }
 
     if (dragData.current.hasMoved && containerRef.current) {
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      const tierEl = elements.find(el => el.getAttribute && el.getAttribute('data-tier-id'));
-      let newTierId = tierEl ? tierEl.getAttribute('data-tier-id') : dragData.current.currentTierId;
+      // --- FIX: Use Card Center for Detection, not Mouse Position ---
+      const TANK_HEIGHT_APPROX = 120; // Visual height of the card
+      const cardLeft = e.clientX - dragData.current.offsetX;
+      const cardTop = e.clientY - dragData.current.offsetY;
 
-      const rect = containerRef.current.getBoundingClientRect();
-      let newIndex = 0;
+      // Calculate the absolute center point of the dragged card
+      const cardCenterX = cardLeft + (TANK_WIDTH / 2);
+      const cardCenterY = cardTop + (TANK_HEIGHT_APPROX / 2);
 
-      // Calculate logic based on layout mode
-      if (layoutMode === 'horizontal') {
-        const relativeY = (e.clientY - dragData.current.offsetY + 60) - rect.top + containerRef.current.scrollTop;
-        newIndex = Math.floor(relativeY / ROW_HEIGHT);
-      } else {
-        const relativeX = (e.clientX - dragData.current.offsetX + TANK_WIDTH / 2) - rect.left + containerRef.current.scrollLeft;
-        newIndex = Math.floor(relativeX / COLUMN_WIDTH);
+      // 1. Detect Tier based on CARD CENTER
+      const tierElements = document.querySelectorAll('[data-tier-id]');
+      let newTierId = dragData.current.currentTierId;
+      let targetTierRect = null;
+
+      for (const el of tierElements) {
+        const rect = el.getBoundingClientRect();
+        // Check if card center is within this Tier's bounds
+        if (
+          cardCenterX >= rect.left && cardCenterX <= rect.right &&
+          cardCenterY >= rect.top && cardCenterY <= rect.bottom
+        ) {
+          newTierId = el.getAttribute('data-tier-id');
+          targetTierRect = rect;
+          break;
+        }
       }
 
-      if (newIndex < 0) newIndex = 0;
+      // If we are strictly outside all tiers (e.g. fast movement in gaps), keep previous tier
+      // but try to get its rect for index calc.
+      if (!targetTierRect) {
+        const el = document.getElementById(`tier-${newTierId}`);
+        if (el) targetTierRect = el.getBoundingClientRect();
+      }
 
-      if (newTierId !== dragData.current.currentTierId || newIndex !== dragData.current.targetCol) {
-        dragData.current.currentTierId = newTierId;
-        dragData.current.targetCol = newIndex;
-        setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newIndex }));
+      if (targetTierRect) {
+        // 2. Detect Index based on CARD CENTER relative to the Tier
+        let newIndex = 0;
+        const HEADER_SIZE = 64; // The w-16 or h-16 header size
+
+        if (layoutMode === 'horizontal') {
+          // Horizontal Layout: Header is at top (h-16). Grid flows vertically.
+          // Y-axis determines index.
+          // We assume index 0 starts right after header.
+          const relativeY = cardCenterY - targetTierRect.top - HEADER_SIZE;
+          newIndex = Math.floor(relativeY / ROW_HEIGHT);
+        } else {
+          // Vertical Layout: Header is at left (w-16). Grid flows horizontally.
+          // X-axis determines index.
+          const relativeX = cardCenterX - targetTierRect.left - HEADER_SIZE;
+          newIndex = Math.floor(relativeX / COLUMN_WIDTH);
+        }
+
+        if (newIndex < 0) newIndex = 0;
+
+        if (newTierId !== dragData.current.currentTierId || newIndex !== dragData.current.targetCol) {
+          dragData.current.currentTierId = newTierId;
+          dragData.current.targetCol = newIndex;
+          setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newIndex }));
+        }
       }
     }
   };
+
   const handleDragEnd = () => {
-    if (dragData.current.hasMoved) { setTanks(curr => curr.map(t => t.id === dragData.current.tankId ? { ...t, columnIndex: dragData.current.targetCol, tierId: dragData.current.currentTierId } : t)); }
-    else { setSelectedTankId(dragData.current.tankId); setIsSidebarOpen(true); }
+    if (dragData.current.hasMoved) {
+      setTanks(curr => curr.map(t => t.id === dragData.current.tankId ? { ...t, columnIndex: dragData.current.targetCol, tierId: dragData.current.currentTierId } : t));
+    } else {
+      setSelectedTankId(dragData.current.tankId); setIsSidebarOpen(true);
+    }
     setDraggingState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
-    window.removeEventListener('mousemove', handleDragMove); window.removeEventListener('mouseup', handleDragEnd);
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragEnd);
   };
+
+  // --- CRUD OPS ---
   const handleAddTank = (tierId, specificColIndex = null) => {
     const tierIndex = tiers.findIndex(t => t.id === tierId);
     let targetCol = 0, parentId = null, inheritedGroup = groups[0].id;
@@ -392,10 +410,10 @@ export default function TankTreeArchitect() {
   };
   const handleDeleteTier = (id) => {
     const isLast = tiers[tiers.length - 1].id === id;
-    if (!isLast) { alert("You can only delete the last tier."); return; }
-    if (tanks.some(t => t.tierId === id)) { alert("Cannot delete a tier that contains tanks."); return; }
+    if (!isLast || tanks.some(t => t.tierId === id)) return;
     setTiers(tiers.filter(t => t.id !== id));
   };
+
   const combinedHandlers = { onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); }, onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id)); if (selectedTankId === id) setSelectedTankId(null); }, onDragStart: handleDragStart, onAddTank: handleAddTank, onDeleteTier: handleDeleteTier };
   const draggingTank = draggingState.tankId ? tanks.find(t => t.id === draggingState.tankId) : null;
   const draggingGroup = draggingTank ? groups.find(g => g.id === draggingTank.groupId) : null;
@@ -415,13 +433,10 @@ export default function TankTreeArchitect() {
           <div className="flex items-center gap-4">
             {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className="p-1.5 bg-neutral-900 border border-neutral-800 rounded-sm hover:bg-neutral-800"><Settings size={16} /></button>}
             <h1 className="text-sm font-bold tracking-[0.2em] text-neutral-400 flex items-center gap-2 uppercase"><Shield size={16} /> Tank Tree Architect</h1>
-
-            {/* ALIGNMENT SWITCHER */}
             <div className="h-6 w-px bg-neutral-800 mx-2"></div>
             <button
               onClick={() => setLayoutMode(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
               className="flex items-center gap-2 px-2 py-1 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm text-xs font-medium text-neutral-400 transition-colors"
-              title="Switch Layout Alignment"
             >
               {layoutMode === 'vertical' ? <GalleryVertical size={14} /> : <GalleryHorizontal size={14} />}
               {layoutMode === 'vertical' ? 'VERTICAL' : 'HORIZONTAL'}
@@ -429,7 +444,6 @@ export default function TankTreeArchitect() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* ... Keep existing Load/Save/Alert buttons ... */}
             <div className="flex items-center gap-2 mr-4 border-r border-neutral-800 pr-4">
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
               <button onClick={handleLoadClick} className="flex items-center gap-1.5 px-2 py-1 text-neutral-500 hover:text-neutral-200 text-xs font-medium bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm transition-colors"><Upload size={12} /> LOAD</button>
@@ -449,19 +463,19 @@ export default function TankTreeArchitect() {
              min-w-full min-h-full relative p-4
              flex ${layoutMode === 'horizontal' ? 'flex-row h-full' : 'flex-col w-full pb-20'}
           `}>
+            {/* Added pointer-events-none to container of lines to ensure clicks pass through to Tiers */}
+            <div className="absolute inset-0 pointer-events-none">
+              <ConnectionLines
+                tanks={tanks}
+                groups={groups}
+                tankRefs={tankRefs}
+                containerRef={containerRef}
+                draggingState={draggingState}
+                highlightedIds={highlightedIds}
+                layoutMode={layoutMode}
+              />
+            </div>
 
-            {/* Pass layoutMode to ConnectionLines */}
-            <ConnectionLines
-              tanks={tanks}
-              groups={groups}
-              tankRefs={tankRefs}
-              containerRef={containerRef}
-              draggingState={draggingState}
-              highlightedIds={highlightedIds}
-              layoutMode={layoutMode}
-            />
-
-            {/* TIER RENDERING LOOP */}
             <div className={`flex relative z-10 ${layoutMode === 'horizontal' ? 'flex-row h-full' : 'flex-col w-full'}`}>
               {tiers.map((tier, index) => (
                 <TierZone
@@ -482,7 +496,6 @@ export default function TankTreeArchitect() {
                 />
               ))}
 
-              {/* ADD TIER BUTTON */}
               <div className={`
                     flex relative border-transparent opacity-50 hover:opacity-100 transition-opacity
                     ${layoutMode === 'horizontal' ? 'w-16 h-full flex-col border-l border-neutral-800/20' : 'h-16 w-full flex-row border-t border-neutral-800/20'}
