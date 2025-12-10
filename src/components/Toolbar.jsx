@@ -1,7 +1,7 @@
 import {
     Settings, Shield, GalleryVertical, GalleryHorizontal,
     RotateCcw, Upload, Save, Image as ImageIcon,
-    Link2, AlertTriangle
+    Link2, AlertTriangle, BookOpen
 } from 'lucide-react';
 
 const Toolbar = ({ state, actions, refs }) => {
@@ -47,6 +47,10 @@ const Toolbar = ({ state, actions, refs }) => {
                     <ActionButton onClick={actions.handleLoadClick} icon={Upload} label="LOAD" />
                     <ActionButton onClick={actions.handleSaveProject} icon={Save} label="SAVE" />
                     <ActionButton onClick={actions.handleSaveImage} icon={ImageIcon} label="IMG" />
+
+                    <div className="w-px h-4 bg-neutral-800 mx-1"></div>
+
+                    <ActionButton onClick={() => actions.setIsDocsOpen(true)} icon={BookOpen} label="DOCS" hoverColor="hover:text-blue-400" />
                 </div>
 
                 {state.connectionSourceId && (

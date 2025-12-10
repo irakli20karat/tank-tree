@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import TierZone from './components/TierZone';
 import ConnectionLines from './components/ConnectionLines';
 import Toolbar from './components/Toolbar';
+import DocsModal from './components/DocsModal';
 
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
@@ -16,6 +17,12 @@ export default function TankTreeArchitect() {
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
+
+      <DocsModal
+        isOpen={state.isDocsOpen}
+        onClose={() => actions.setIsDocsOpen(false)}
+      />
+
       <Sidebar
         isOpen={state.isSidebarOpen} setIsOpen={actions.setIsSidebarOpen}
         selectedTank={state.tanks.find(t => t.id === state.selectedTankId)}
@@ -38,8 +45,8 @@ export default function TankTreeArchitect() {
             ref={refs?.exportRef}
             className={`
               relative p-4 flex 
-              ${state.layoutMode === 'horizontal' 
-                ? 'flex-row min-h-full h-fit min-w-full' 
+              ${state.layoutMode === 'horizontal'
+                ? 'flex-row min-h-full h-fit min-w-full'
                 : 'flex-col min-w-full w-fit min-h-full pb-20'
               }
             `}
@@ -54,8 +61,8 @@ export default function TankTreeArchitect() {
 
             <div className={`
               flex relative z-10 
-              ${state.layoutMode === 'horizontal' 
-                ? 'flex-row h-full' 
+              ${state.layoutMode === 'horizontal'
+                ? 'flex-row h-full'
                 : 'flex-col w-full'
               }
             `}>
