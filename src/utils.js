@@ -4,10 +4,10 @@ export const COLUMN_WIDTH = 160;
 export const TANK_WIDTH = 144;
 
 export const DEFAULT_GROUPS = [
-    { id: 'g_lt', name: 'Light Tanks', color: '#a3a3a3', icon: 'diamond' },
-    { id: 'g_mt', name: 'Medium Tanks', color: '#4ade80', icon: 'hexagon' },
-    { id: 'g_ht', name: 'Heavy Tanks', color: '#e7f84bff', icon: 'square' },
-    { id: 'g_td', name: 'Tank Destroyers', color: '#38bdf8', icon: 'triangle' },
+    { id: 'g_lt', name: 'Light Tanks', color: '#4ade80', icon: 'diamond' },
+    { id: 'g_mt', name: 'Medium Tanks', color: '#e7f84bff', icon: 'hexagon' },
+    { id: 'g_ht', name: 'Heavy Tanks', color: '#f56127ff', icon: 'square' },
+    { id: 'g_td', name: 'Tank Destroyers', color: '#319ccaff', icon: 'triangle' },
     { id: 'g_spg', name: 'SPGs', color: '#c084fc', icon: 'circle' },
 ];
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal } from 'lucide-react';
+import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, Globe } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const Sidebar = ({
@@ -40,11 +40,27 @@ const Sidebar = ({
                     <>
                         {/* Image Input */}
                         <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Preview</label>
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Preview & Image</label>
+
+                            {/* File Upload Box */}
                             <div className="h-32 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors relative overflow-hidden group" onClick={() => document.getElementById('tank-image-upload').click()}>
-                                {selectedTank.image ? <img src={selectedTank.image} alt="Preview" className="w-full h-full object-cover" /> : <div className="flex flex-col items-center text-neutral-600"><Upload size={20} className="mb-2" /><span className="text-xs">Upload Image</span></div>}
+                                {selectedTank.image ? <img src={selectedTank.image} alt="Preview" className="w-full h-full object-cover" /> : <div className="flex flex-col items-center text-neutral-600"><Upload size={20} className="mb-2" /><span className="text-xs">Click to Upload File</span></div>}
                                 <input id="tank-image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                                 {selectedTank.image && <button onClick={(e) => { e.stopPropagation(); updateTank(selectedTank.id, 'image', null); }} className="absolute top-2 right-2 p-1 bg-neutral-900 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm"><Trash2 size={12} /></button>}
+                            </div>
+
+                            {/* URL Input */}
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                    <Globe size={12} className="text-neutral-600" />
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Or paste image URL..."
+                                    value={selectedTank.image && !selectedTank.image.startsWith('data:') ? selectedTank.image : ''}
+                                    onChange={(e) => updateTank(selectedTank.id, 'image', e.target.value)}
+                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-2 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
+                                />
                             </div>
                         </div>
 
