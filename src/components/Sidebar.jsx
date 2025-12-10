@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, Globe } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 

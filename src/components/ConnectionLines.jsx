@@ -1,5 +1,5 @@
 import { useState, useLayoutEffect } from 'react';
-import { doSegmentsIntersect } from '../utils';
+import { doSegmentsIntersect } from '../utils/utils';
 
 const intersectsRect = (p1, p2, rect, padding = 5) => {
     const minX = Math.min(p1.x, p2.x);

@@ -1,5 +1,3 @@
-// utils.js
-
 export const COLUMN_WIDTH = 160;
 export const TANK_WIDTH = 144;
 
