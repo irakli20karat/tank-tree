@@ -364,7 +364,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 const isHighlighted = highlightedIds && highlightedIds.has(line.parentId) && highlightedIds.has(line.childId);
                 const baseColor = line.group?.color || '#525252';
                 let color = isHighlighted ? baseColor : '#404040';
-                let opacity = isHighlighted ? "1" : "0.4";
+                let opacity = isHighlighted ? "1" : "0.8";
                 let strokeWidth = isHighlighted ? "2" : "1.5";
                 let strokeDash = "0";
 
