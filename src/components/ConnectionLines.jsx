@@ -143,7 +143,6 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
             });
 
             const allConnections = [];
-            const parentPorts = {};
             const childPorts = {};
 
             tanks.forEach(tank => {
@@ -186,10 +185,6 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                     const connData = { parentId, childId: tank.id, startSide, endSide, orientation, pRect, cRect };
                     allConnections.push(connData);
 
-                    const pKey = `${parentId}-${startSide}`;
-                    if (!parentPorts[pKey]) parentPorts[pKey] = [];
-                    parentPorts[pKey].push(connData);
-
                     const cKey = `${tank.id}-${endSide}`;
                     if (!childPorts[cKey]) childPorts[cKey] = [];
                     childPorts[cKey].push(connData);
@@ -201,16 +196,8 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
 
             allConnections.forEach(conn => {
                 const parentTank = tanks.find(t => t.id === conn.parentId);
-                const pKey = `${conn.parentId}-${conn.startSide}`;
-                const siblingsAtParent = parentPorts[pKey];
 
-                siblingsAtParent.sort((a, b) => {
-                    if (conn.orientation === 'vertical') return a.cRect.centerX - b.cRect.centerX;
-                    return a.cRect.centerY - b.cRect.centerY;
-                });
-
-                const pIndex = siblingsAtParent.indexOf(conn);
-                const pOffset = (pIndex - (siblingsAtParent.length - 1) / 2) * OFFSET_STEP;
+                const pOffset = 0;
 
                 const cKey = `${conn.childId}-${conn.endSide}`;
                 const siblingsAtChild = childPorts[cKey];
@@ -294,9 +281,18 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
         return (Math.atan2(dy, dx) * 180) / Math.PI;
     };
 
+    const sortedLines = [...lines].sort((a, b) => {
+        const isA = highlightedIds && highlightedIds.has(a.parentId) && highlightedIds.has(a.childId);
+        const isB = highlightedIds && highlightedIds.has(b.parentId) && highlightedIds.has(b.childId);
+
+        if (isA && !isB) return 1;
+        if (!isA && isB) return -1;
+        return 0;
+    });
+
     return (
         <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-visible">
-            {lines.map(line => {
+            {sortedLines.map(line => {
                 const isCrossed = crossingIds.has(line.id);
                 const isHighlighted = highlightedIds && highlightedIds.has(line.parentId) && highlightedIds.has(line.childId);
                 const baseColor = line.group?.color || '#525252';
@@ -321,6 +317,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                 return (
                     <g key={line.id}>
                         <path d={toPathString(line.points)} stroke="#0a0a0a" strokeWidth="5" fill="none" />
+
                         <path
                             d={toPathString(line.points)}
                             stroke={color}
@@ -331,6 +328,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                             strokeLinejoin="round"
                             className="transition-colors duration-300"
                         />
+
                         {lastPoint && prevPoint && (
                             <polygon
                                 points={arrowPoints}
@@ -339,6 +337,7 @@ const ConnectionLines = ({ tanks, groups, tankRefs, containerRef, draggingState,
                                 transform={`translate(${lastPoint.x}, ${lastPoint.y}) rotate(${arrowRotation})`}
                             />
                         )}
+
                         {line.isBlocked && <circle cx={(line.points[0].x + lastPoint.x) / 2} cy={(line.points[0].y + lastPoint.y) / 2} r={4} fill="red" />}
                     </g>
                 );

@@ -19,7 +19,7 @@ export default function TankTreeArchitect() {
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
 
       {state.isExporting && (
-        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center cursor-wait">
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center cursor-wait">
           <Loader2 className="w-12 h-12 text-red-500 animate-spin mb-4" />
           <h2 className="text-xl font-bold text-white tracking-wider">EXPORTING IMAGE...</h2>
           <p className="text-neutral-400 text-sm mt-2">Please wait while we render your tech tree.</p>
@@ -103,10 +103,28 @@ export default function TankTreeArchitect() {
               <div className={`flex relative border-transparent opacity-50 hover:opacity-100 transition-opacity ${state.layoutMode === 'horizontal' ? 'w-16 h-full flex-col border-l border-neutral-800/20' : 'h-16 w-full flex-row border-t border-neutral-800/20'}`}>
                 <div className="flex items-center justify-center p-4">
                   <button
-                    onClick={(e) => { e.stopPropagation(); actions.setTiers([...state.tiers, { id: generateId(), roman: toRoman(state.tiers.length + 1), index: state.tiers.length }]); }}
-                    className="p-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded-sm text-neutral-500 hover:text-green-500 transition-all shadow-md"
+                    onClick={(e) => {
+                      if (state.isExporting) return;
+                      e.stopPropagation();
+                      actions.setTiers([...state.tiers, { id: generateId(), roman: toRoman(state.tiers.length + 1), index: state.tiers.length }]);
+                    }}
+                    className={`
+                        p-3 rounded-sm transition-all shadow-md flex items-center justify-center
+                        ${state.isExporting
+                        ? 'bg-transparent border-none'
+                        : 'bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 text-neutral-500 hover:text-green-500'
+                      }
+                    `}
                   >
-                    <Plus size={20} />
+                    {state.isExporting ? (
+                      <img
+                        src="/ico.svg"
+                        alt="Tech Tree"
+                        className="w-8 h-8 opacity-40 grayscale contrast-125"
+                      />
+                    ) : (
+                      <Plus size={20} />
+                    )}
                   </button>
                 </div>
               </div>
