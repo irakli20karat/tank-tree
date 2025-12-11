@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { AlertTriangle, X, Link2 } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
@@ -15,6 +16,22 @@ const TankCard = ({
     setRef,
     styleOverride = {}
 }) => {
+    const [imageError, setImageError] = useState(false);
+    const [prevImage, setPrevImage] = useState(tank.image);
+
+    const [bgError, setBgError] = useState(false);
+    const [prevBgImage, setPrevBgImage] = useState(tank.bgImage);
+
+    if (tank.image !== prevImage) {
+        setPrevImage(tank.image);
+        setImageError(false);
+    }
+
+    if (tank.bgImage !== prevBgImage) {
+        setPrevBgImage(tank.bgImage);
+        setBgError(false);
+    }
+
     const mainColor = group?.color || '#525252';
 
     let borderColor = isSelected ? '#fbbf24' : '#262626';
@@ -63,7 +80,7 @@ const TankCard = ({
                 ${!isDragging && !styleOverride.position ? 'hover:scale-[1.02] cursor-grab active:cursor-grabbing' : ''}
             `}
         >
-            {tank.bgImage && (
+            {tank.bgImage && !bgError && (
                 <div className="absolute inset-0 z-0 pointer-events-none">
                     <img
                         className={`w-full h-full object-cover opacity-30 grayscale-[0.2] bg-id-${tank.id}`}
@@ -71,6 +88,7 @@ const TankCard = ({
                         alt="background"
                         loading="eager"
                         crossOrigin="anonymous"
+                        onError={() => setBgError(true)}
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/80" />
                 </div>
@@ -92,11 +110,13 @@ const TankCard = ({
             )}
 
             <div className="h-20 w-full relative border-b border-neutral-800/50 z-10">
-                {tank.image ? (
+                {tank.image && !imageError ? (
                     <div className="absolute inset-0 z-10 p-1">
                         <img
                             src={tank.image}
                             alt={tank.name}
+                            onError={() => setImageError(true)}
+                            crossOrigin="anonymous"
                             className="w-full h-full object-contain pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity drop-shadow-lg"
                         />
                     </div>
@@ -118,7 +138,11 @@ const TankCard = ({
                 >
                     {tank.name || 'Unnamed'}
                 </h3>
-                <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">XP: {tank.xpCost || 0}</p>
+                {tank.xpCost > 0 && (
+                    <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">
+                        XP: {tank.xpCost}
+                    </p>
+                )}
             </div>
 
             {!isDragging && !styleOverride.position && onDelete && (

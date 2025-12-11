@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { generateId } from './utils/utils';
 import { toRoman, TANK_WIDTH } from './utils/tankUtils';
 import { useTankTree } from './hooks/useTankTree';
@@ -17,6 +17,14 @@ export default function TankTreeArchitect() {
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
+
+      {state.isExporting && (
+        <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center cursor-wait">
+          <Loader2 className="w-12 h-12 text-red-500 animate-spin mb-4" />
+          <h2 className="text-xl font-bold text-white tracking-wider">EXPORTING IMAGE...</h2>
+          <p className="text-neutral-400 text-sm mt-2">Please wait while we render your tech tree.</p>
+        </div>
+      )}
 
       <DocsModal
         isOpen={state.isDocsOpen}

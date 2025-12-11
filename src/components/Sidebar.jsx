@@ -93,7 +93,7 @@ const Sidebar = ({
                                             onChange={(e) => updateTank(selectedTank.id, 'bgImage', e.target.value)}
                                             className="w-full bg-neutral-950 border border-neutral-700 rounded-sm px-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600 mb-1"
                                         />
-                                        <span className="text-[9px] text-neutral-600">Renders behind vehicle.</span>
+                                        <span className="text-[9px] text-neutral-600">If you're using URL image may fail to load because of how browsers work - in such cases its better to upload images manually.</span>
                                     </div>
                                 </div>
                             </div>

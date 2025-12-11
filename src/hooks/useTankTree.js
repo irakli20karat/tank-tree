@@ -6,6 +6,8 @@ import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH } fr
 export const useTankTree = () => {
   const [layoutMode, setLayoutMode] = useState('vertical');
   const [isDocsOpen, setIsDocsOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
@@ -77,6 +79,8 @@ export const useTankTree = () => {
   const handleSaveImage = async () => {
     if (exportRef.current === null) return;
 
+    setIsExporting(true);
+
     const prevSelection = selectedTankId;
     const prevConnection = connectionSourceId;
 
@@ -125,9 +129,9 @@ export const useTankTree = () => {
       console.error('Failed to save image:', err);
       alert("Failed to generate image.");
     } finally {
-      // 5. Restore State
       if (prevSelection) setSelectedTankId(prevSelection);
       if (prevConnection) setConnectionSourceId(prevConnection);
+      setIsExporting(false);
     }
   };
 
@@ -272,7 +276,12 @@ export const useTankTree = () => {
   };
 
   return {
-    state: { layoutMode, tiers, groups, tanks, selectedTankId, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen },
+    state: { 
+        layoutMode, tiers, groups, tanks, selectedTankId, 
+        connectionSourceId, isSidebarOpen, draggingState, 
+        conflicts, gridCapacity, highlightedIds, isDocsOpen,
+        isExporting
+    },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
       setLayoutMode, setTiers, setSelectedTankId, setConnectionSourceId, setIsSidebarOpen,
