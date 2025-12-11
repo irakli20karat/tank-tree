@@ -76,22 +76,51 @@ export const useTankTree = () => {
 
   const handleSaveImage = async () => {
     if (exportRef.current === null) return;
+
     const prevSelection = selectedTankId;
     const prevConnection = connectionSourceId;
+
     setSelectedTankId(null);
     setConnectionSourceId(null);
+
     try {
+      const contentWrapper = exportRef.current.querySelector('.z-10');
+
+      const PADDING = 60;
+      let exportWidth, exportHeight;
+
+      if (layoutMode === 'horizontal') {
+        exportWidth = (contentWrapper?.scrollWidth || exportRef.current.scrollWidth) + PADDING;
+        exportHeight = (gridCapacity * ROW_HEIGHT) + PADDING;
+      } else {
+        exportWidth = (gridCapacity * COLUMN_WIDTH) + PADDING;
+        exportHeight = (contentWrapper?.scrollHeight || exportRef.current.scrollHeight) + PADDING;
+      }
+
       const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true, backgroundColor: '#0a0a0a',
-        width: exportRef.current.scrollWidth, height: exportRef.current.scrollHeight,
-        style: { transform: 'none', overflow: 'visible' }
+        cacheBust: true,
+        backgroundColor: '#0a0a0a',
+        width: exportWidth,
+        height: exportHeight,
+        pixelRatio: 3,
+        style: {
+          transform: 'none',
+          overflow: 'visible',
+          minWidth: '0',
+          minHeight: '0',
+          width: 'auto',
+          height: 'auto'
+        }
       });
+
       const link = document.createElement('a');
       link.download = `tech-tree-${new Date().toISOString().slice(0, 10)}.png`;
       link.href = dataUrl;
       link.click();
-    } catch (err) { console.error('Failed to save image:', err); alert("Failed to generate image."); }
-    finally {
+    } catch (err) {
+      console.error('Failed to save image:', err);
+      alert("Failed to generate image.");
+    } finally {
       if (prevSelection) setSelectedTankId(prevSelection);
       if (prevConnection) setConnectionSourceId(prevConnection);
     }
