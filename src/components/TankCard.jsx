@@ -1,4 +1,4 @@
-import { AlertTriangle, X, Link2 } from 'lucide-react'; 
+import { AlertTriangle, X, Link2 } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const TankCard = ({
@@ -24,8 +24,8 @@ const TankCard = ({
         borderColor = '#fbbf24';
         bgColor = '#171717';
     } else if (isConnectionSource) {
-        borderColor = '#3b82f6'; 
-        bgColor = '#172554'; 
+        borderColor = '#3b82f6';
+        bgColor = '#172554';
     } else if (isHighlighted) {
         borderColor = mainColor;
         bgColor = `${mainColor}10`;
@@ -46,7 +46,7 @@ const TankCard = ({
         borderColor: borderColor,
         backgroundColor: bgColor,
         opacity: isDragging ? 0.3 : 1,
-        borderStyle: isConnectionSource ? 'dashed' : 'solid', 
+        borderStyle: isConnectionSource ? 'dashed' : 'solid',
         ...styleOverride
     };
 
@@ -59,10 +59,23 @@ const TankCard = ({
             style={style}
             className={`
                 relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
-                border rounded-sm
+                border rounded-sm overflow-hidden
                 ${!isDragging && !styleOverride.position ? 'hover:scale-[1.02] cursor-grab active:cursor-grabbing' : ''}
             `}
         >
+            {tank.bgImage && (
+                <div className="absolute inset-0 z-0 pointer-events-none">
+                    <img
+                        className={`w-full h-full object-cover opacity-30 grayscale-[0.2] bg-id-${tank.id}`}
+                        src={tank.bgImage}
+                        alt="background"
+                        loading="eager"
+                        crossOrigin="anonymous"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/40 to-black/80" />
+                </div>
+            )}
+
             {isConnectionSource && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 text-[9px] font-bold px-2 rounded-sm flex items-center gap-1 z-50 whitespace-nowrap border bg-black border-blue-500 text-blue-500">
                     <Link2 size={8} /> LINKING...
@@ -78,27 +91,34 @@ const TankCard = ({
                 </div>
             )}
 
-            <div className="h-20 w-full relative border-b border-neutral-800 bg-black/40">
+            <div className="h-20 w-full relative border-b border-neutral-800/50 z-10">
                 {tank.image ? (
-                    <img src={tank.image} alt={tank.name} className="w-full h-full object-cover pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 z-10 p-1">
+                        <img
+                            src={tank.image}
+                            alt={tank.name}
+                            className="w-full h-full object-contain pointer-events-none opacity-90 group-hover:opacity-100 transition-opacity drop-shadow-lg"
+                        />
+                    </div>
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center opacity-20">
+                    <div className="w-full h-full flex items-center justify-center opacity-20 relative z-10">
                         <GroupIcon icon={group?.icon} color={mainColor} size={32} />
                     </div>
                 )}
-                <div className="absolute top-0 right-0 bg-neutral-900 border-l border-b border-neutral-800 p-1.5">
+
+                <div className="absolute top-0 right-0 bg-neutral-900/90 border-l border-b border-neutral-800 p-1.5 z-20 backdrop-blur-sm">
                     <GroupIcon icon={group?.icon} color={mainColor} size={12} />
                 </div>
             </div>
 
-            <div className="p-2 text-center w-full">
+            <div className="p-2 text-center w-full relative z-10 bg-transparent">
                 <h3
-                    className="text-xs font-medium truncate w-full font-mono mb-1"
+                    className="text-xs font-medium truncate w-full font-mono mb-1 drop-shadow-md"
                     style={{ color: isSelected ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4') }}
                 >
                     {tank.name || 'Unnamed'}
                 </h3>
-                <p className="text-[10px] text-neutral-600 font-mono">XP: {tank.xpCost || 0}</p>
+                <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">XP: {tank.xpCost || 0}</p>
             </div>
 
             {!isDragging && !styleOverride.position && onDelete && (

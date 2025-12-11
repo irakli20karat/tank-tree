@@ -86,6 +86,9 @@ export const useTankTree = () => {
     try {
       const contentWrapper = exportRef.current.querySelector('.z-10');
 
+      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
       const PADDING = 60;
       let exportWidth, exportHeight;
 
@@ -98,7 +101,8 @@ export const useTankTree = () => {
       }
 
       const dataUrl = await toPng(exportRef.current, {
-        cacheBust: true,
+        cacheBust: false,
+        useCORS: true,
         backgroundColor: '#0a0a0a',
         width: exportWidth,
         height: exportHeight,
@@ -121,13 +125,20 @@ export const useTankTree = () => {
       console.error('Failed to save image:', err);
       alert("Failed to generate image.");
     } finally {
+      // 5. Restore State
       if (prevSelection) setSelectedTankId(prevSelection);
       if (prevConnection) setConnectionSourceId(prevConnection);
     }
   };
 
-  const updateTank = (id, field, value) => setTanks(tanks.map(t => t.id === id ? { ...t, [field]: value } : t));
-  const updateGroupColor = (gid, color) => setGroups(groups.map(g => g.id === gid ? { ...g, color } : g));
+  const updateTank = (id, field, value) => {
+    setTanks(prevTanks => prevTanks.map(t => t.id === id ? { ...t, [field]: value } : t));
+  };
+
+  const updateGroupColor = (gid, color) => {
+    setGroups(prevGroups => prevGroups.map(g => g.id === gid ? { ...g, color } : g));
+  };
+
   const toggleParent = (id, pid) => setTanks(curr => curr.map(t => t.id === id ? { ...t, parentIds: t.parentIds.includes(pid) ? t.parentIds.filter(x => x !== pid) : [...t.parentIds, pid] } : t));
   const toggleChild = (id, cid) => setTanks(curr => curr.map(t => t.id === cid ? { ...t, parentIds: t.parentIds.includes(id) ? t.parentIds.filter(x => x !== id) : [...t.parentIds, id] } : t));
 
@@ -148,7 +159,9 @@ export const useTankTree = () => {
       while (tanks.some(t => t.tierId === tierId && t.columnIndex === targetCol)) targetCol++;
     }
     const newTank = { id: generateId(), name: 'New Vehicle', tierId, image: null, parentIds: parentId ? [parentId] : [], groupId: inheritedGroup, xpCost: 0, columnIndex: targetCol };
-    setTanks([...tanks, newTank]); setSelectedTankId(newTank.id); setIsSidebarOpen(true);
+    setTanks(prev => [...prev, newTank]); 
+    setSelectedTankId(newTank.id); 
+    setIsSidebarOpen(true);
   };
 
   const handleDeleteTier = (id) => {
@@ -160,10 +173,23 @@ export const useTankTree = () => {
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file && selectedTankId) {
+      const targetId = selectedTankId; 
       const reader = new FileReader();
-      reader.onloadend = () => updateTank(selectedTankId, 'image', reader.result);
+      reader.onloadend = () => updateTank(targetId, 'image', reader.result);
       reader.readAsDataURL(file);
     }
+    e.target.value = ''; 
+  };
+
+  const handleBgImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file && selectedTankId) {
+      const targetId = selectedTankId; 
+      const reader = new FileReader();
+      reader.onloadend = () => updateTank(targetId, 'bgImage', reader.result);
+      reader.readAsDataURL(file);
+    }
+    e.target.value = ''; 
   };
 
   const handleDragStart = (e, tank) => {
@@ -252,7 +278,7 @@ export const useTankTree = () => {
       setLayoutMode, setTiers, setSelectedTankId, setConnectionSourceId, setIsSidebarOpen,
       setIsDocsOpen,
       handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage,
-      handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload
+      handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload
     },
     handlers: {
       onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); },

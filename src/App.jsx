@@ -24,12 +24,19 @@ export default function TankTreeArchitect() {
       />
 
       <Sidebar
-        isOpen={state.isSidebarOpen} setIsOpen={actions.setIsSidebarOpen}
+        isOpen={state.isSidebarOpen}
+        setIsOpen={actions.setIsSidebarOpen}
         selectedTank={state.tanks.find(t => t.id === state.selectedTankId)}
-        tanks={state.tanks} tiers={state.tiers} groups={state.groups}
-        updateTank={actions.updateTank} updateGroupColor={actions.updateGroupColor}
-        handleDeleteTank={handlers.onDeleteTank} toggleParent={actions.toggleParent}
-        toggleChild={actions.toggleChild} handleImageUpload={actions.handleImageUpload}
+        tanks={state.tanks}
+        tiers={state.tiers}
+        groups={state.groups}
+        updateTank={actions.updateTank}
+        updateGroupColor={actions.updateGroupColor}
+        handleDeleteTank={handlers.onDeleteTank}
+        toggleParent={actions.toggleParent}
+        toggleChild={actions.toggleChild}
+        handleImageUpload={actions.handleImageUpload}
+        handleBgImageUpload={actions.handleBgImageUpload}
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-neutral-950 relative">
