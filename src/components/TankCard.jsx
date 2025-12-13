@@ -68,7 +68,6 @@ const TankCard = ({
     };
 
     const isGold = tank.costType === 'gold';
-    
     const nameColor = isSelected ? '#fbbf24' : (isGold ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4'));
 
     return (
@@ -76,7 +75,11 @@ const TankCard = ({
             ref={setRef}
             onMouseDown={(e) => onMouseDown && onMouseDown(e, tank)}
             onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => { e.stopPropagation(); onEdit && onEdit(tank); }}
+            onDoubleClick={(e) => { 
+                e.stopPropagation(); 
+                if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+                onEdit && onEdit(tank); 
+            }}
             style={style}
             className={`
                 relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
