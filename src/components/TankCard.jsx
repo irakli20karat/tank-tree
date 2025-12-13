@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X, Link2 } from 'lucide-react';
+import { AlertTriangle, X, Link2, Coins } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const TankCard = ({
@@ -66,6 +66,10 @@ const TankCard = ({
         borderStyle: isConnectionSource ? 'dashed' : 'solid',
         ...styleOverride
     };
+
+    const isGold = tank.costType === 'gold';
+    
+    const nameColor = isSelected ? '#fbbf24' : (isGold ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4'));
 
     return (
         <div
@@ -141,15 +145,24 @@ const TankCard = ({
 
             <div className="p-2 text-center w-full relative z-10 bg-transparent">
                 <h3
-                    className="text-xs font-medium truncate w-full font-mono mb-1 drop-shadow-md"
-                    style={{ color: isSelected ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4') }}
+                    className={`text-xs truncate w-full font-mono mb-1 drop-shadow-md ${isGold ? 'font-bold uppercase tracking-wide' : 'font-medium'}`}
+                    style={{ color: nameColor }}
                 >
                     {tank.name || 'Unnamed'}
                 </h3>
-                {tank.xpCost > 0 && (
-                    <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">
-                        XP: {tank.xpCost}
-                    </p>
+                
+                {isGold ? (
+                    tank.goldCost > 0 && (
+                        <p className="text-[10px] text-yellow-500 font-mono drop-shadow-md flex items-center justify-center gap-1 font-bold">
+                            <Coins size={8} /> {tank.goldCost}
+                        </p>
+                    )
+                ) : (
+                    tank.xpCost > 0 && (
+                        <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">
+                            XP: {tank.xpCost}
+                        </p>
+                    )
                 )}
             </div>
 

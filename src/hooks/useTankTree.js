@@ -180,7 +180,20 @@ export const useTankTree = () => {
       }
       while (tanks.some(t => t.tierId === tierId && t.columnIndex === targetCol)) targetCol++;
     }
-    const newTank = { id: generateId(), name: 'New Vehicle', tierId, image: null, parentIds: parentId ? [parentId] : [], groupId: inheritedGroup, xpCost: 0, columnIndex: targetCol };
+    
+    const newTank = { 
+        id: generateId(), 
+        name: 'New Vehicle', 
+        tierId, 
+        image: null, 
+        parentIds: parentId ? [parentId] : [], 
+        groupId: inheritedGroup, 
+        xpCost: 0, 
+        goldCost: 0,
+        costType: 'xp',
+        columnIndex: targetCol 
+    };
+    
     setTanks(prev => [...prev, newTank]); 
     handleSetSelectedTankId(newTank.id); 
     setIsSidebarOpen(true);
