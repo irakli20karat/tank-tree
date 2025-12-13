@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, Globe, Flag } from 'lucide-react';
+import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, Globe, Flag, Layers } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const Sidebar = ({
     isOpen,
     setIsOpen,
     selectedTank,
+    selectedIds,
     tanks,
     tiers,
     groups,
@@ -20,6 +21,33 @@ const Sidebar = ({
     const [isParentMenuOpen, setIsParentMenuOpen] = useState(false);
     const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
     const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+
+    const selectedTanks = selectedIds && selectedIds.size > 0
+        ? tanks.filter(t => selectedIds.has(t.id))
+        : (selectedTank ? [selectedTank] : []);
+
+    const isMultiSelect = selectedTanks.length > 1;
+
+    const handleMultiUpdate = (field, value) => {
+        selectedTanks.forEach(tank => {
+            updateTank(tank.id, field, value);
+        });
+    };
+
+    const handleMultiFileUpload = (e, field) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const result = ev.target.result;
+            selectedTanks.forEach(tank => {
+                updateTank(tank.id, field, result);
+            });
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+    };
 
     const availableParents = selectedTank ? tanks.filter(t => {
         const tTier = tiers.find(tier => tier.id === t.tierId);
@@ -39,7 +67,7 @@ const Sidebar = ({
         <div className={`flex-shrink-0 bg-neutral-900 border-r border-neutral-800 transition-all duration-300 flex flex-col ${isOpen ? 'w-80' : 'w-0'}`}>
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
                 <h2 className="font-bold text-sm uppercase tracking-wider text-neutral-400 flex items-center gap-2">
-                    <Settings size={16} /> Properties
+                    <Settings size={16} /> {isMultiSelect ? `${selectedTanks.length} Selected` : 'Properties'}
                 </h2>
                 <button onClick={() => setIsOpen(false)} className="text-neutral-500 hover:text-neutral-200">
                     <ChevronDown className="transform rotate-90" size={18} />
@@ -47,7 +75,102 @@ const Sidebar = ({
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                {selectedTank ? (
+
+                {isMultiSelect ? (
+                    <div className="space-y-6">
+                        <div className="p-3 bg-blue-900/20 border border-blue-900/50 rounded-sm flex items-center gap-3">
+                            <Layers className="text-blue-400" size={20} />
+                            <div>
+                                <h3 className="text-xs font-bold text-blue-200">Batch Editing</h3>
+                                <p className="text-[10px] text-blue-400">Changes will apply to {selectedTanks.length} tanks.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase">Class Group</label>
+                            <div className="relative">
+                                <button onClick={() => setIsGroupMenuOpen(!isGroupMenuOpen)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between">
+                                    <span className="text-neutral-400 italic">Select to overwrite all...</span>
+                                    <ChevronDown size={12} />
+                                </button>
+                                {isGroupMenuOpen && (
+                                    <div className="absolute top-full left-0 w-full bg-neutral-900 border border-neutral-700 z-50 mt-1 shadow-xl">
+                                        {groups.map(g => (
+                                            <button
+                                                key={g.id}
+                                                onClick={() => {
+                                                    handleMultiUpdate('groupId', g.id);
+                                                    setIsGroupMenuOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800"
+                                            >
+                                                <GroupIcon icon={g.icon} color={g.color} size={24} />
+                                                {g.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t border-neutral-800">
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Set Common Image</label>
+                            <div
+                                className="h-24 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                onClick={() => document.getElementById('multi-tank-upload').click()}
+                            >
+                                <div className="flex flex-col items-center text-neutral-600">
+                                    <Upload size={20} className="mb-2" />
+                                    <span className="text-xs">Upload for All</span>
+                                </div>
+                                <input id="multi-tank-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'image')} />
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleMultiUpdate('image', null)}
+                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 hover:border-red-900 text-xs text-neutral-400 hover:text-red-400 rounded-sm"
+                                >
+                                    Clear Images
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Set Common Background</label>
+                            <div
+                                className="h-16 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors"
+                                onClick={() => document.getElementById('multi-bg-upload').click()}
+                            >
+                                <div className="flex flex-col items-center text-neutral-600">
+                                    <Upload size={16} className="mb-1" />
+                                    <span className="text-[10px]">Upload BG for All</span>
+                                </div>
+                                <input id="multi-bg-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'bgImage')} />
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleMultiUpdate('bgImage', null)}
+                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 hover:border-red-900 text-xs text-neutral-400 hover:text-red-400 rounded-sm"
+                                >
+                                    Clear Backgrounds
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="pt-6 mt-auto">
+                            <button
+                                onClick={() => {
+                                    if (window.confirm(`Delete ${selectedTanks.length} tanks?`)) {
+                                        selectedTanks.forEach(t => handleDeleteTank(t.id));
+                                    }
+                                }}
+                                className="w-full py-2 bg-transparent hover:bg-red-950/30 text-neutral-600 hover:text-red-500 rounded-sm border border-neutral-800 hover:border-red-900 transition-colors text-xs flex items-center justify-center gap-2"
+                            >
+                                <Trash2 size={12} /> Delete {selectedTanks.length} Tanks
+                            </button>
+                        </div>
+                    </div>
+                ) : selectedTank ? (
                     <>
                         <div className="space-y-4">
                             <div className="space-y-2">
@@ -93,7 +216,6 @@ const Sidebar = ({
                                             onChange={(e) => updateTank(selectedTank.id, 'bgImage', e.target.value)}
                                             className="w-full bg-neutral-950 border border-neutral-700 rounded-sm px-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600 mb-1"
                                         />
-                                        <span className="text-[9px] text-neutral-600">If you're using URL image may fail to load because of how browsers work - in such cases its better to upload images manually.</span>
                                     </div>
                                 </div>
                             </div>
@@ -118,8 +240,15 @@ const Sidebar = ({
                                         {isGroupMenuOpen && (
                                             <div className="absolute top-full left-0 w-full bg-neutral-900 border border-neutral-700 z-50 mt-1 shadow-xl">
                                                 {groups.map(g => (
-                                                    <button key={g.id} onClick={() => { updateTank(selectedTank.id, 'groupId', g.id); setIsGroupMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800">
-                                                        <GroupIcon icon={g.icon} color={g.color} size={12} />
+                                                    <button
+                                                        key={g.id}
+                                                        onClick={() => {
+                                                            handleMultiUpdate('groupId', g.id);
+                                                            setIsGroupMenuOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800"
+                                                    >
+                                                        <GroupIcon icon={g.icon} color={g.color} size={20} />
                                                         {g.name}
                                                     </button>
                                                 ))}
@@ -218,7 +347,7 @@ const Sidebar = ({
                                                 <input type="color" value={g.color} onChange={(e) => updateGroupColor(g.id, e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <GroupIcon icon={g.icon} color={g.color} size={14} />
+                                                <GroupIcon icon={g.icon} color={g.color} size={24} />
                                                 <span className="text-xs font-mono text-neutral-400">{g.name}</span>
                                             </div>
                                         </div>

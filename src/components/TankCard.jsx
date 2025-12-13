@@ -122,12 +122,12 @@ const TankCard = ({
                     </div>
                 ) : (
                     <div className="w-full h-full flex items-center justify-center opacity-20 relative z-10">
-                        <GroupIcon icon={group?.icon} color={mainColor} size={32} />
+                        <GroupIcon icon={group?.icon} color={mainColor} size={48} />
                     </div>
                 )}
 
                 <div className="absolute top-0 right-0 bg-neutral-900/90 border-l border-b border-neutral-800 p-1.5 z-20 backdrop-blur-sm">
-                    <GroupIcon icon={group?.icon} color={mainColor} size={12} />
+                    <GroupIcon icon={group?.icon} color={mainColor} size={24} />
                 </div>
             </div>
 

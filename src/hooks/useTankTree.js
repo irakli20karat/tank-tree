@@ -11,21 +11,45 @@ export const useTankTree = () => {
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
+  
   const [selectedTankId, setSelectedTankId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+
   const [connectionSourceId, setConnectionSourceId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [draggingState, setDraggingState] = useState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
+  
+  const [draggingState, setDraggingState] = useState({ 
+    isPressed: false, 
+    isDragging: false, 
+    leaderId: null, 
+    currentTierId: null, 
+    targetCol: 0,
+    dragDelta: { col: 0, tierIndex: 0 }
+  });
 
   const tankRefs = useRef({});
   const containerRef = useRef(null);
   const exportRef = useRef(null);
   const dragOverlayRef = useRef(null);
-  const dragData = useRef({ startX: 0, startY: 0, offsetX: 0, offsetY: 0, tankId: null, currentTierId: null, targetCol: 0, hasMoved: false });
   const fileInputRef = useRef(null);
+  
+  const dragData = useRef({ 
+    startX: 0, startY: 0, offsetX: 0, offsetY: 0, 
+    leaderId: null, 
+    leaderStartTierIndex: 0,
+    leaderStartCol: 0,
+    initialPositions: {}, 
+    hasMoved: false,
+    justDropped: false
+  });
 
   const maxIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridCapacity = Math.max(maxIndex + 3, 6);
-  const highlightedIds = useMemo(() => selectedTankId ? getAllConnectedIds(selectedTankId, tanks) : null, [selectedTankId, tanks]);
+
+  const highlightedIds = useMemo(() => {
+    if (selectedIds.size > 1) return null;
+    return selectedTankId ? getAllConnectedIds(selectedTankId, tanks) : null;
+  }, [selectedTankId, tanks, selectedIds]);
 
   const conflicts = useMemo(() => {
     const conflictsMap = {};
@@ -39,14 +63,23 @@ export const useTankTree = () => {
     return conflictsMap;
   }, [tanks]);
 
+  const handleSetSelectedTankId = (id) => {
+    setSelectedTankId(id);
+    if (id === null) {
+      setSelectedIds(new Set());
+    } else if (!selectedIds.has(id)) {
+      setSelectedIds(new Set([id]));
+    }
+  };
+
   const handleTotalReset = () => {
-    if (window.confirm("Are you sure you want to completely reset the project? All data will be lost.")) {
-      setTiers(generateTiers(5));
-      setGroups(DEFAULT_GROUPS);
-      setTanks(INITIAL_TANKS);
-      setSelectedTankId(null);
-      setConnectionSourceId(null);
-      setLayoutMode('vertical');
+    if (window.confirm("Are you sure you want to completely reset the project?")) {
+        setTiers(generateTiers(5));
+        setGroups(DEFAULT_GROUPS);
+        setTanks(INITIAL_TANKS);
+        setSelectedTankId(null);
+        setSelectedIds(new Set());
+        setConnectionSourceId(null);
     }
   };
 
@@ -69,7 +102,7 @@ export const useTankTree = () => {
         const data = JSON.parse(ev.target.result);
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers); setGroups(data.groups); setTanks(data.tanks);
-          setSelectedTankId(null); setConnectionSourceId(null);
+          setSelectedTankId(null); setSelectedIds(new Set()); setConnectionSourceId(null);
         }
       } catch (err) { console.error(err); alert("Failed to parse."); }
     };
@@ -78,18 +111,15 @@ export const useTankTree = () => {
 
   const handleSaveImage = async () => {
     if (exportRef.current === null) return;
-
     setIsExporting(true);
-
     const prevSelection = selectedTankId;
-    const prevConnection = connectionSourceId;
-
+    const prevSet = new Set(selectedIds);
     setSelectedTankId(null);
+    setSelectedIds(new Set());
     setConnectionSourceId(null);
 
     try {
       const contentWrapper = exportRef.current.querySelector('.z-10');
-
       await new Promise(resolve => setTimeout(resolve, 250));
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
@@ -105,20 +135,9 @@ export const useTankTree = () => {
       }
 
       const dataUrl = await toPng(exportRef.current, {
-        cacheBust: false,
-        useCORS: true,
-        backgroundColor: '#0a0a0a',
-        width: exportWidth,
-        height: exportHeight,
-        pixelRatio: 3,
-        style: {
-          transform: 'none',
-          overflow: 'visible',
-          minWidth: '0',
-          minHeight: '0',
-          width: 'auto',
-          height: 'auto'
-        }
+        cacheBust: false, useCORS: true, backgroundColor: '#0a0a0a',
+        width: exportWidth, height: exportHeight, pixelRatio: 3,
+        style: { transform: 'none', overflow: 'visible', minWidth: '0', minHeight: '0', width: 'auto', height: 'auto' }
       });
 
       const link = document.createElement('a');
@@ -127,10 +146,9 @@ export const useTankTree = () => {
       link.click();
     } catch (err) {
       console.error('Failed to save image:', err);
-      alert("Failed to generate image.");
     } finally {
       if (prevSelection) setSelectedTankId(prevSelection);
-      if (prevConnection) setConnectionSourceId(prevConnection);
+      setSelectedIds(prevSet);
       setIsExporting(false);
     }
   };
@@ -164,7 +182,7 @@ export const useTankTree = () => {
     }
     const newTank = { id: generateId(), name: 'New Vehicle', tierId, image: null, parentIds: parentId ? [parentId] : [], groupId: inheritedGroup, xpCost: 0, columnIndex: targetCol };
     setTanks(prev => [...prev, newTank]); 
-    setSelectedTankId(newTank.id); 
+    handleSetSelectedTankId(newTank.id); 
     setIsSidebarOpen(true);
   };
 
@@ -196,6 +214,7 @@ export const useTankTree = () => {
     e.target.value = ''; 
   };
 
+
   const handleDragStart = (e, tank) => {
     if (e.altKey) {
       e.preventDefault(); e.stopPropagation();
@@ -215,15 +234,69 @@ export const useTankTree = () => {
       }
       return;
     }
+
     e.stopPropagation();
     if (connectionSourceId) setConnectionSourceId(null);
-    const el = tankRefs.current[tank.id];
-    const rect = el.getBoundingClientRect();
+
+    const isMultiSelect = e.ctrlKey || e.metaKey;
+    let newSelectedIds = new Set(selectedIds);
+
+    if (isMultiSelect) {
+        if (!newSelectedIds.has(tank.id)) {
+            newSelectedIds.add(tank.id);
+        }
+    } else {
+        if (!newSelectedIds.has(tank.id)) {
+            newSelectedIds = new Set([tank.id]);
+        }
+    }
+
+    setSelectedIds(newSelectedIds);
+    setSelectedTankId(tank.id); 
+
+    const leaderEl = tankRefs.current[tank.id];
+    const leaderRect = leaderEl.getBoundingClientRect();
+    
+    const initialPositions = {};
+    tanks.forEach(t => {
+        if (newSelectedIds.has(t.id)) {
+            const tIndex = tiers.findIndex(tier => tier.id === t.tierId);
+            
+            let pixelDeltaX = 0;
+            let pixelDeltaY = 0;
+            const followerEl = tankRefs.current[t.id];
+            
+            if (followerEl) {
+                const followerRect = followerEl.getBoundingClientRect();
+                pixelDeltaX = followerRect.left - leaderRect.left;
+                pixelDeltaY = followerRect.top - leaderRect.top;
+            }
+
+            initialPositions[t.id] = { 
+                tierIndex: tIndex, 
+                col: t.columnIndex || 0, 
+                tierId: t.tierId,
+                pixelDeltaX,
+                pixelDeltaY
+            };
+        }
+    });
+
+    const leaderTierIndex = tiers.findIndex(t => t.id === tank.tierId);
+
     dragData.current = {
-      startX: e.clientX, startY: e.clientY,
-      offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top,
-      tankId: tank.id, currentTierId: tank.tierId, targetCol: tank.columnIndex, hasMoved: false
+      startX: e.clientX, 
+      startY: e.clientY,
+      offsetX: e.clientX - leaderRect.left, 
+      offsetY: e.clientY - leaderRect.top,
+      leaderId: tank.id, 
+      leaderStartTierIndex: leaderTierIndex,
+      leaderStartCol: tank.columnIndex || 0,
+      initialPositions,
+      hasMoved: false,
+      justDropped: false
     };
+
     window.addEventListener('mousemove', handleDragMove);
     window.addEventListener('mouseup', handleDragEnd);
   };
@@ -232,66 +305,144 @@ export const useTankTree = () => {
     if (!dragData.current.hasMoved) {
       if (Math.hypot(e.clientX - dragData.current.startX, e.clientY - dragData.current.startY) < 5) return;
       dragData.current.hasMoved = true;
-      setDraggingState({ isPressed: true, isDragging: true, tankId: dragData.current.tankId, currentTierId: dragData.current.currentTierId, targetCol: dragData.current.targetCol });
+      setDraggingState({ 
+        isPressed: true, 
+        isDragging: true, 
+        leaderId: dragData.current.leaderId, 
+        currentTierId: dragData.current.initialPositions[dragData.current.leaderId].tierId, 
+        targetCol: dragData.current.leaderStartCol,
+        dragDelta: { col: 0, tierIndex: 0 }
+      });
     }
+
     if (dragOverlayRef.current) {
       dragOverlayRef.current.style.left = `${e.clientX - dragData.current.offsetX}px`;
       dragOverlayRef.current.style.top = `${e.clientY - dragData.current.offsetY}px`;
     }
+
     if (dragData.current.hasMoved && containerRef.current) {
       const cardCenterX = (e.clientX - dragData.current.offsetX) + (TANK_WIDTH / 2);
       const cardCenterY = (e.clientY - dragData.current.offsetY) + (120 / 2);
 
       const tierElements = document.querySelectorAll('[data-tier-id]');
-      let newTierId = dragData.current.currentTierId;
+      let hoveredTierId = null;
       let targetTierRect = null;
-      for (const el of tierElements) {
+      let hoveredTierIndex = -1;
+
+      for (let i = 0; i < tierElements.length; i++) {
+        const el = tierElements[i];
         const rect = el.getBoundingClientRect();
         if (cardCenterX >= rect.left && cardCenterX <= rect.right && cardCenterY >= rect.top && cardCenterY <= rect.bottom) {
-          newTierId = el.getAttribute('data-tier-id'); targetTierRect = rect; break;
+          hoveredTierId = el.getAttribute('data-tier-id'); 
+          targetTierRect = rect; 
+          hoveredTierIndex = i;
+          break;
         }
       }
-      if (targetTierRect) {
-        let newIndex = 0; const HEADER_SIZE = 64;
-        if (layoutMode === 'horizontal') newIndex = Math.floor((cardCenterY - targetTierRect.top - HEADER_SIZE) / ROW_HEIGHT);
-        else newIndex = Math.floor((cardCenterX - targetTierRect.left - HEADER_SIZE) / COLUMN_WIDTH);
-        if (newIndex < 0) newIndex = 0;
-        if (newTierId !== dragData.current.currentTierId || newIndex !== dragData.current.targetCol) {
-          dragData.current.currentTierId = newTierId; dragData.current.targetCol = newIndex;
-          setDraggingState(prev => ({ ...prev, currentTierId: newTierId, targetCol: newIndex }));
+
+      if (targetTierRect && hoveredTierIndex !== -1) {
+        let newCol = 0; 
+        const HEADER_SIZE = 64; 
+        if (layoutMode === 'horizontal') {
+            newCol = Math.floor((cardCenterY - targetTierRect.top - HEADER_SIZE) / ROW_HEIGHT);
+        } else {
+            newCol = Math.floor((cardCenterX - targetTierRect.left - HEADER_SIZE) / COLUMN_WIDTH);
+        }
+        if (newCol < 0) newCol = 0;
+
+        const deltaCol = newCol - dragData.current.leaderStartCol;
+        const deltaTier = hoveredTierIndex - dragData.current.leaderStartTierIndex;
+
+        if (dragData.current.lastDeltaCol !== deltaCol || dragData.current.lastDeltaTier !== deltaTier) {
+            dragData.current.lastDeltaCol = deltaCol;
+            dragData.current.lastDeltaTier = deltaTier;
+            
+            setDraggingState(prev => ({ 
+                ...prev, 
+                currentTierId: hoveredTierId, 
+                targetCol: newCol,
+                dragDelta: { col: deltaCol, tierIndex: deltaTier }
+            }));
         }
       }
     }
   };
 
-  const handleDragEnd = () => {
+  const handleDragEnd = (e) => {
     if (dragData.current.hasMoved) {
-      setTanks(curr => curr.map(t => t.id === dragData.current.tankId ? { ...t, columnIndex: dragData.current.targetCol, tierId: dragData.current.currentTierId } : t));
+      const { col: deltaCol, tierIndex: deltaTier } = dragData.current.lastDeltaCol !== undefined 
+        ? { col: dragData.current.lastDeltaCol, tierIndex: dragData.current.lastDeltaTier }
+        : { col: 0, tierIndex: 0 };
+
+      setTanks(curr => curr.map(t => {
+        const initPos = dragData.current.initialPositions[t.id];
+        if (!initPos) return t;
+
+        const newTierIndex = Math.max(0, Math.min(tiers.length - 1, initPos.tierIndex + deltaTier));
+        const newCol = Math.max(0, initPos.col + deltaCol);
+        
+        return {
+            ...t,
+            columnIndex: newCol,
+            tierId: tiers[newTierIndex].id
+        };
+      }));
+
+      dragData.current.justDropped = true;
+      setTimeout(() => { 
+        if (dragData.current) dragData.current.justDropped = false; 
+      }, 50);
+
     } else {
-      setSelectedTankId(dragData.current.tankId); setIsSidebarOpen(true);
+        setIsSidebarOpen(true);
+        
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
+            const leaderId = dragData.current.leaderId;
+            if (leaderId) {
+                setSelectedIds(new Set([leaderId]));
+                setSelectedTankId(leaderId);
+            }
+        }
     }
-    setDraggingState({ isPressed: false, isDragging: false, tankId: null, currentTierId: null, targetCol: 0 });
+
+    setDraggingState({ 
+        isPressed: false, isDragging: false, leaderId: null, currentTierId: null, targetCol: 0, 
+        dragDelta: { col: 0, tierIndex: 0 } 
+    });
     window.removeEventListener('mousemove', handleDragMove);
     window.removeEventListener('mouseup', handleDragEnd);
   };
 
+  const handleEmptyClick = (e) => {
+      if (dragData.current.justDropped) return;
+
+      if(!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        handleSetSelectedTankId(null);
+      }
+  };
+
   return {
     state: { 
-        layoutMode, tiers, groups, tanks, selectedTankId, 
+        layoutMode, tiers, groups, tanks, 
+        selectedTankId, selectedIds, 
         connectionSourceId, isSidebarOpen, draggingState, 
         conflicts, gridCapacity, highlightedIds, isDocsOpen,
         isExporting
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
-      setLayoutMode, setTiers, setSelectedTankId, setConnectionSourceId, setIsSidebarOpen,
+      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen,
       setIsDocsOpen,
       handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage,
-      handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload
+      handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload,
+      handleEmptyClick
     },
     handlers: {
-      onEditTank: (t) => { setSelectedTankId(t.id); setIsSidebarOpen(true); },
-      onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id)); if (selectedTankId === id) setSelectedTankId(null); },
+      onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },
+      onDeleteTank: (id) => { 
+          setTanks(tanks.filter(t => t.id !== id && !selectedIds.has(t.id))); 
+          handleSetSelectedTankId(null); 
+      },
       onDragStart: handleDragStart,
       onAddTank: handleAddTank,
       onDeleteTier: handleDeleteTier

@@ -12,8 +12,13 @@ import DocsModal from './components/DocsModal';
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
 
-  const draggingTank = state.draggingState.tankId ? state.tanks.find(t => t.id === state.draggingState.tankId) : null;
-  const draggingGroup = draggingTank ? state.groups.find(g => g.id === draggingTank.groupId) : null;
+  const draggingTanks = state.draggingState.isDragging 
+    ? state.tanks.filter(t => state.selectedIds.has(t.id)) 
+    : [];
+
+  const leaderTank = state.draggingState.leaderId 
+    ? state.tanks.find(t => t.id === state.draggingState.leaderId) 
+    : null;
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
@@ -22,7 +27,6 @@ export default function TankTreeArchitect() {
         <div className="fixed inset-0 z-[10000] bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center cursor-wait">
           <Loader2 className="w-12 h-12 text-red-500 animate-spin mb-4" />
           <h2 className="text-xl font-bold text-white tracking-wider">EXPORTING IMAGE...</h2>
-          <p className="text-neutral-400 text-sm mt-2">Please wait while we render your tech tree.</p>
         </div>
       )}
 
@@ -35,6 +39,7 @@ export default function TankTreeArchitect() {
         isOpen={state.isSidebarOpen}
         setIsOpen={actions.setIsSidebarOpen}
         selectedTank={state.tanks.find(t => t.id === state.selectedTankId)}
+        selectedIds={state.selectedIds}
         tanks={state.tanks}
         tiers={state.tiers}
         groups={state.groups}
@@ -53,7 +58,10 @@ export default function TankTreeArchitect() {
 
         <div
           ref={refs?.containerRef}
-          onClick={() => { actions.setSelectedTankId(null); actions.setConnectionSourceId(null); }}
+          onClick={(e) => { 
+            actions.handleEmptyClick(e);
+            actions.setConnectionSourceId(null); 
+          }}
           className="flex-1 overflow-auto relative custom-scrollbar"
         >
           <div
@@ -88,6 +96,7 @@ export default function TankTreeArchitect() {
                   tanks={state.tanks.filter(t => t.tierId === tier.id)}
                   groups={state.groups}
                   selectedTankId={state.selectedTankId}
+                  selectedIds={state.selectedIds}
                   connectionSourceId={state.connectionSourceId}
                   highlightedIds={state.highlightedIds}
                   draggingState={state.draggingState}
@@ -116,23 +125,53 @@ export default function TankTreeArchitect() {
                       }
                     `}
                   >
-                    {state.isExporting ? (
-                      <img
-                        src="/ico.svg"
-                        alt="Tech Tree"
-                        className="w-8 h-8 opacity-40 grayscale contrast-125"
-                      />
-                    ) : (
-                      <Plus size={20} />
-                    )}
+                    <Plus size={20} />
                   </button>
                 </div>
               </div>
             </div>
 
-            {state.draggingState.isDragging && draggingTank && refs?.dragOverlayRef && refs?.dragData?.current && (
-              <div ref={refs?.dragOverlayRef} className="fixed pointer-events-none z-[9999]" style={{ width: TANK_WIDTH, left: (refs?.dragData?.current?.startX ?? 0) - (refs?.dragData?.current?.offsetX ?? 0), top: (refs?.dragData?.current?.startY ?? 0) - (refs?.dragData?.current?.offsetY ?? 0) }}>
-                <TankCard tank={draggingTank} group={draggingGroup} isSelected={true} styleOverride={{ position: 'static' }} />
+            {state.draggingState.isDragging && leaderTank && refs?.dragOverlayRef && refs?.dragData?.current && (
+              <div 
+                ref={refs.dragOverlayRef} 
+                className="fixed pointer-events-none z-[9999]" 
+                style={{ 
+                    width: 0, height: 0,
+                    left: (refs.dragData.current.startX ?? 0) - (refs.dragData.current.offsetX ?? 0), 
+                    top: (refs.dragData.current.startY ?? 0) - (refs.dragData.current.offsetY ?? 0) 
+                }}
+              >
+                {draggingTanks.map(tank => {
+                    const group = state.groups.find(g => g.id === tank.groupId);
+                    
+                    const tankInit = refs.dragData.current.initialPositions[tank.id];
+                    
+                    if (!tankInit) return null;
+
+                    return (
+                        <div 
+                            key={tank.id}
+                            style={{
+                                position: 'absolute',
+                                left: tankInit.pixelDeltaX,
+                                top: tankInit.pixelDeltaY,
+                                width: TANK_WIDTH
+                            }}
+                        >
+                            <TankCard 
+                                tank={tank} 
+                                group={group} 
+                                isSelected={true} 
+                                styleOverride={{ 
+                                    position: 'static', 
+                                    opacity: 0.9, 
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+                                    transform: 'scale(1.02)'
+                                }} 
+                            />
+                        </div>
+                    );
+                })}
               </div>
             )}
           </div>

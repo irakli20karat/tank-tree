@@ -4,11 +4,12 @@ import TankCard from './TankCard';
 import { ROW_HEIGHT, COLUMN_WIDTH, TANK_WIDTH } from '../utils/tankUtils';
 
 const TierZone = ({
-    tier, tanks, groups, selectedTankId, connectionSourceId,
+    tier, tanks, groups, selectedTankId, selectedIds, connectionSourceId,
     highlightedIds, draggingState, conflicts, gridCapacity,
     handlers, registerRef, isLastTier, layoutMode
 }) => {
     const isTargetTier = draggingState.currentTierId === tier.id;
+    
     const [hoverIndex, setHoverIndex] = useState(null);
     const zoneRef = useRef(null);
     const isHorizontal = layoutMode === 'horizontal';
@@ -104,14 +105,18 @@ const TierZone = ({
                             key={tank.id}
                             tank={tank}
                             group={groups.find(g => g.id === tank.groupId) || groups[0]}
-                            isSelected={selectedTankId === tank.id}
+                            
+                            isSelected={selectedIds ? selectedIds.has(tank.id) : (selectedTankId === tank.id)}
+                            
                             isConnectionSource={connectionSourceId === tank.id}
                             isHighlighted={highlightedIds && highlightedIds.has(tank.id)}
                             onEdit={handlers.onEditTank}
                             onDelete={handlers.onDeleteTank}
                             onMouseDown={handlers.onDragStart}
                             setRef={(el) => registerRef(tank.id, el)}
-                            isDragging={draggingState.isDragging && draggingState.tankId === tank.id}
+                            
+                            isDragging={draggingState.isDragging && selectedIds?.has(tank.id)}
+                            
                             conflictType={conflicts[tank.id]}
                             styleOverride={isHorizontal ? {
                                 gridRowStart: (tank.columnIndex || 0) + 1,
