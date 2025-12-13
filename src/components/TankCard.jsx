@@ -94,6 +94,14 @@ const TankCard = ({
                 </div>
             )}
 
+            <div 
+                className="absolute inset-0 z-0 pointer-events-none"
+                style={{
+                    background: `linear-gradient(335deg, ${mainColor}, transparent)`,
+                    opacity: 0.15 
+                }}
+            />
+
             {isConnectionSource && (
                 <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 text-[9px] font-bold px-2 rounded-sm flex items-center gap-1 z-50 whitespace-nowrap border bg-black border-blue-500 text-blue-500">
                     <Link2 size={8} /> LINKING...

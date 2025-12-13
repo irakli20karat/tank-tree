@@ -125,6 +125,19 @@ const Sidebar = ({
                                 </div>
                                 <input id="multi-tank-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'image')} />
                             </div>
+                            
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                    <Globe size={12} className="text-neutral-600" />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Or paste Image URL for all..." 
+                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600" 
+                                    onChange={(e) => handleMultiUpdate('image', e.target.value)}
+                                />
+                            </div>
+
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleMultiUpdate('image', null)}
@@ -147,6 +160,19 @@ const Sidebar = ({
                                 </div>
                                 <input id="multi-bg-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'bgImage')} />
                             </div>
+
+                            <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                                    <Globe size={12} className="text-neutral-600" />
+                                </div>
+                                <input 
+                                    type="text" 
+                                    placeholder="Or paste BG URL for all..." 
+                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600" 
+                                    onChange={(e) => handleMultiUpdate('bgImage', e.target.value)}
+                                />
+                            </div>
+
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => handleMultiUpdate('bgImage', null)}
