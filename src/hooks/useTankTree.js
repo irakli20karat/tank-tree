@@ -1,12 +1,17 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { toPng } from 'html-to-image';
 import { generateId, DEFAULT_GROUPS, getAllConnectedIds } from '../utils/utils';
 import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH } from '../utils/tankUtils';
+
+const AUTOSAVE_KEY = 'tank-tree-autosave-v1';
 
 export const useTankTree = () => {
   const [layoutMode, setLayoutMode] = useState('vertical');
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [isReadyToSave, setIsReadyToSave] = useState(false);
   
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
@@ -43,6 +48,70 @@ export const useTankTree = () => {
     justDropped: false,
     wasAlreadySelected: false
   });
+
+  useEffect(() => {
+    const checkSave = () => {
+      try {
+        const savedData = localStorage.getItem(AUTOSAVE_KEY);
+        if (savedData) {
+          setShowRestoreModal(true);
+        } else {
+          setIsReadyToSave(true);
+        }
+      } catch (e) {
+        console.error("Error reading autosave", e);
+        setIsReadyToSave(true);
+      }
+    };
+    checkSave();
+  }, []);
+
+  useEffect(() => {
+    if (!isReadyToSave || showRestoreModal) return;
+
+    const timer = setTimeout(() => {
+      const dataToSave = {
+        timestamp: Date.now(),
+        tanks,
+        tiers,
+        groups
+      };
+      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [tanks, tiers, groups, isReadyToSave, showRestoreModal]);
+
+  const handleRestoreAutosave = () => {
+    try {
+      const savedRaw = localStorage.getItem(AUTOSAVE_KEY);
+      if (savedRaw) {
+        const data = JSON.parse(savedRaw);
+        if (data.tanks && data.tiers && data.groups) {
+          setTiers(data.tiers);
+          setGroups(data.groups);
+          setTanks(data.tanks);
+          
+          setSelectedTankId(null);
+          setSelectedIds(new Set());
+          setConnectionSourceId(null);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to restore", err);
+      alert("Failed to load autosave data.");
+    } finally {
+      setShowRestoreModal(false);
+      setIsReadyToSave(true);
+    }
+  };
+
+  const handleDiscardAutosave = () => {
+    localStorage.removeItem(AUTOSAVE_KEY);
+    setShowRestoreModal(false);
+    setIsReadyToSave(true);
+  };
+
 
   const maxIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridCapacity = Math.max(maxIndex + 3, 6);
@@ -81,6 +150,7 @@ export const useTankTree = () => {
         setSelectedTankId(null);
         setSelectedIds(new Set());
         setConnectionSourceId(null);
+        localStorage.removeItem(AUTOSAVE_KEY);
     }
   };
 
@@ -457,7 +527,7 @@ export const useTankTree = () => {
         selectedTankId, selectedIds, 
         connectionSourceId, isSidebarOpen, draggingState, 
         conflicts, gridCapacity, highlightedIds, isDocsOpen,
-        isExporting
+        isExporting, showRestoreModal
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
@@ -465,7 +535,8 @@ export const useTankTree = () => {
       setIsDocsOpen,
       handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage,
       handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload,
-      handleEmptyClick
+      handleEmptyClick,
+      handleRestoreAutosave, handleDiscardAutosave
     },
     handlers: {
       onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },
