@@ -55,6 +55,10 @@ export default function TankTreeArchitect() {
         toggleChild={actions.toggleChild}
         handleImageUpload={actions.handleImageUpload}
         handleBgImageUpload={actions.handleBgImageUpload}
+        updateGroup={actions.updateGroup}
+        handleAddGroup={actions.handleAddGroup}
+        handleDeleteGroup={actions.handleDeleteGroup}
+        handleGroupIconUpload={actions.handleGroupIconUpload}
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-neutral-950 relative">

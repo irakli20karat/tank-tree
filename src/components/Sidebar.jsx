@@ -1,5 +1,9 @@
 import { useState } from 'react';
-import { Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, Globe, Flag, Layers, Coins, Sparkles } from 'lucide-react'; 
+import { 
+    Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network, 
+    Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal, 
+    Globe, Flag, Layers, Coins, Sparkles, Plus, RotateCcw 
+} from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const Sidebar = ({
@@ -11,12 +15,15 @@ const Sidebar = ({
     tiers,
     groups,
     updateTank,
-    updateGroupColor,
+    updateGroup,
     handleDeleteTank,
     toggleParent,
     toggleChild,
     handleImageUpload,
-    handleBgImageUpload
+    handleBgImageUpload,
+    handleAddGroup,
+    handleDeleteGroup,
+    handleGroupIconUpload
 }) => {
     const [isParentMenuOpen, setIsParentMenuOpen] = useState(false);
     const [isChildMenuOpen, setIsChildMenuOpen] = useState(false);
@@ -160,40 +167,7 @@ const Sidebar = ({
                                 </button>
                             </div>
                         </div>
-
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Set Common Background</label>
-                            <div
-                                className="h-24 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors"
-                                onClick={() => document.getElementById('multi-bg-upload').click()}
-                            >
-                                <div className="flex flex-col items-center text-neutral-600">
-                                    <Upload size={20} className="mb-2" />
-                                    <span className="text-xs">Upload BG for All</span>
-                                </div>
-                                <input id="multi-bg-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'bgImage')} />
-                            </div>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                    <Globe size={12} className="text-neutral-600" />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Or paste BG URL for all..."
-                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
-                                    onChange={(e) => handleMultiUpdate('bgImage', e.target.value)}
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleMultiUpdate('bgImage', null)}
-                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 hover:border-red-900 text-xs text-neutral-400 hover:text-red-400 rounded-sm"
-                                >
-                                    Clear Backgrounds
-                                </button>
-                            </div>
-                        </div>
-
+                        
                         <div className="pt-6 mt-auto">
                             <button
                                 onClick={() => {
@@ -399,20 +373,90 @@ const Sidebar = ({
                             <Layout size={32} className="mx-auto mb-4 opacity-50" />
                             <p className="text-xs">Select a node to edit, or configure groups below.</p>
                         </div>
+
                         <div className="border-t border-neutral-800 pt-6">
-                            <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-2 mb-4"><Palette size={12} /> Class Manager</label>
-                            <div className="space-y-2">
+                            <div className="flex items-center justify-between mb-4">
+                                <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-2">
+                                    <Palette size={12} /> Class Manager
+                                </label>
+                                <button 
+                                    onClick={handleAddGroup}
+                                    className="flex items-center gap-1 text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-300 px-2 py-1 rounded-sm border border-neutral-700 transition-colors"
+                                >
+                                    <Plus size={10} /> Add Class
+                                </button>
+                            </div>
+                            
+                            <div className="space-y-3">
                                 {groups.map(g => (
-                                    <div key={g.id} className="flex items-center justify-between bg-neutral-950 border border-neutral-800 p-2 rounded-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="relative group/color cursor-pointer">
-                                                <div className="w-4 h-4 rounded-sm border border-white/10" style={{ backgroundColor: g.color }}></div>
-                                                <input type="color" value={g.color} onChange={(e) => updateGroupColor(g.id, e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                                    <div key={g.id} className="bg-neutral-950 border border-neutral-800 p-2 rounded-sm space-y-2">
+                                        
+                                        <div className="flex items-center gap-2">
+                                            <div className="relative cursor-pointer group/color">
+                                                <div className="w-6 h-6 rounded-sm border border-white/10" style={{ backgroundColor: g.color }}></div>
+                                                <input 
+                                                    type="color" 
+                                                    value={g.color} 
+                                                    onChange={(e) => updateGroup(g.id, 'color', e.target.value)}
+                                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                                />
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <GroupIcon icon={g.icon} color={g.color} size={24} />
-                                                <span className="text-xs font-mono text-neutral-400">{g.name}</span>
+
+                                            <input 
+                                                type="text" 
+                                                value={g.name}
+                                                onChange={(e) => updateGroup(g.id, 'name', e.target.value)}
+                                                className="flex-1 bg-transparent border-b border-transparent focus:border-neutral-600 text-xs font-mono text-neutral-200 focus:outline-none py-1"
+                                            />
+
+                                            {groups.length > 1 && (
+                                                <button 
+                                                    onClick={() => handleDeleteGroup(g.id)}
+                                                    className="text-neutral-600 hover:text-red-500 transition-colors p-1"
+                                                    title="Delete Class"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 bg-neutral-900/50 p-1 rounded-sm overflow-x-auto">
+                                            <div className="flex-shrink-0 border-r border-neutral-800 pr-2 mr-1">
+                                                <GroupIcon icon={g.icon} color={g.color} size={20} />
                                             </div>
+
+                                            {['lt', 'mt', 'ht', 'td', 'spg'].map(preset => (
+                                                <button
+                                                    key={preset}
+                                                    onClick={() => updateGroup(g.id, 'icon', preset)}
+                                                    className={`p-1 rounded-sm hover:bg-neutral-800 ${g.icon === preset ? 'bg-neutral-800 ring-1 ring-neutral-700' : 'opacity-50 hover:opacity-100'}`}
+                                                    title={preset.toUpperCase()}
+                                                >
+                                                    <GroupIcon icon={preset} color={g.color} size={14} />
+                                                </button>
+                                            ))}
+
+                                            <div className="h-4 w-[1px] bg-neutral-800 mx-1"></div>
+                                            
+                                            <label className="cursor-pointer p-1 rounded-sm hover:bg-neutral-800 text-neutral-500 hover:text-neutral-200" title="Upload Custom Icon">
+                                                <Upload size={14} />
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    className="hidden" 
+                                                    onChange={(e) => handleGroupIconUpload(e, g.id)}
+                                                />
+                                            </label>
+
+                                            {g.icon && (g.icon.startsWith('data:') || g.icon.startsWith('http')) && (
+                                                 <button 
+                                                    onClick={() => updateGroup(g.id, 'icon', 'lt')}
+                                                    className="p-1 rounded-sm hover:bg-neutral-800 text-neutral-500 hover:text-neutral-200"
+                                                    title="Reset to Default"
+                                                 >
+                                                    <RotateCcw size={14} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
