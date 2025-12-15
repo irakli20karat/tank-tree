@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
     Settings, ChevronDown, ChevronLeft, ChevronRight, Upload, Trash2, Network,
     Unlink, Link as LinkIcon, ArrowDownCircle, Layout, Palette, MoveHorizontal,
-    Globe, Flag, Layers, Coins, Sparkles, Plus, RotateCcw
+    Globe, Flag, Layers, Coins, Plus, RotateCcw,
+    Star
 } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
@@ -118,20 +119,35 @@ const Sidebar = ({
                         </div>
 
                         <div className="space-y-2 pt-2 border-t border-neutral-800">
-                            <label className="text-[10px] font-bold text-neutral-500 uppercase">Currency Type</label>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleMultiUpdate('costType', 'xp')}
-                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-xs text-neutral-300 rounded-sm flex items-center justify-center gap-1"
-                                >
-                                    <Sparkles size={10} className="text-blue-400" /> XP
-                                </button>
-                                <button
-                                    onClick={() => handleMultiUpdate('costType', 'gold')}
-                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-neutral-700 text-xs text-neutral-300 rounded-sm flex items-center justify-center gap-1"
-                                >
-                                    <Coins size={10} className="text-yellow-400" /> Gold
-                                </button>
+                            <label className="text-[10px] font-bold text-neutral-500 uppercase">Costs (Batch Overwrite)</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="space-y-1">
+                                    <label className="text-[9px] text-blue-400 font-bold flex items-center gap-1 justify-center"><Star size={8} /> XP</label>
+                                    <input
+                                        type="number"
+                                        placeholder="-"
+                                        onChange={(e) => handleMultiUpdate('xpCost', parseInt(e.target.value) || 0)}
+                                        className="w-full bg-neutral-950 border border-neutral-700 text-center rounded-sm text-xs py-1 text-blue-400"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] text-neutral-400 font-bold flex items-center gap-1 justify-center"><Coins size={8} /> SLV</label>
+                                    <input
+                                        type="number"
+                                        placeholder="-"
+                                        onChange={(e) => handleMultiUpdate('silverCost', parseInt(e.target.value) || 0)}
+                                        className="w-full bg-neutral-950 border border-neutral-700 text-center rounded-sm text-xs py-1 text-neutral-300"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[9px] text-yellow-500 font-bold flex items-center gap-1 justify-center"><Coins size={8} /> GLD</label>
+                                    <input
+                                        type="number"
+                                        placeholder="-"
+                                        onChange={(e) => handleMultiUpdate('goldCost', parseInt(e.target.value) || 0)}
+                                        className="w-full bg-neutral-950 border border-neutral-700 text-center rounded-sm text-xs py-1 text-yellow-500"
+                                    />
+                                </div>
                             </div>
                         </div>
 
@@ -147,56 +163,8 @@ const Sidebar = ({
                                 </div>
                                 <input id="multi-tank-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'image')} />
                             </div>
-                            <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                    <Globe size={12} className="text-neutral-600" />
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Or paste Image URL for all..."
-                                    className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
-                                    onChange={(e) => handleMultiUpdate('image', e.target.value)}
-                                />
-                            </div>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleMultiUpdate('image', null)}
-                                    className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 hover:border-red-900 text-xs text-neutral-400 hover:text-red-400 rounded-sm"
-                                >
-                                    Clear Images
-                                </button>
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">Set Common Background</label>
-                                <div
-                                    className="h-24 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors"
-                                    onClick={() => document.getElementById('multi-bg-upload').click()}
-                                >
-                                    <div className="flex flex-col items-center text-neutral-600">
-                                        <Upload size={20} className="mb-2" />
-                                        <span className="text-xs">Upload BG for All</span>
-                                    </div>
-                                    <input id="multi-bg-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleMultiFileUpload(e, 'bgImage')} />
-                                </div>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                                        <Globe size={12} className="text-neutral-600" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Or paste BG URL for all..."
-                                        className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
-                                        onChange={(e) => handleMultiUpdate('bgImage', e.target.value)}
-                                    />
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => handleMultiUpdate('bgImage', null)}
-                                        className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 hover:border-red-900 text-xs text-neutral-400 hover:text-red-400 rounded-sm"
-                                    >
-                                        Clear Backgrounds
-                                    </button>
-                                </div>
+                                <button onClick={() => handleMultiUpdate('image', null)} className="flex-1 py-1.5 bg-neutral-800 border border-neutral-700 hover:bg-red-900/30 text-xs text-neutral-400 rounded-sm">Clear Images</button>
                             </div>
                         </div>
 
@@ -250,7 +218,6 @@ const Sidebar = ({
                                             </button>
                                         )}
                                     </div>
-
                                     <div className="flex-1 flex flex-col justify-center">
                                         <input
                                             type="text"
@@ -300,34 +267,36 @@ const Sidebar = ({
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center h-4">
-                                        Cost Type
-                                    </label>
-                                    <div className="relative">
-                                        <select
-                                            value={selectedTank.costType || 'xp'}
-                                            onChange={(e) => updateTank(selectedTank.id, 'costType', e.target.value)}
-                                            className="w-full bg-neutral-950 border border-neutral-700 rounded-sm h-9 px-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none appearance-none"
-                                        >
-                                            <option value="xp">XP (Normal)</option>
-                                            <option value="gold">Gold (Prem)</option>
-                                        </select>
-                                        <ChevronDown size={12} className="absolute right-2 top-1/2 transform -translate-y-1/2 text-neutral-500 pointer-events-none" />
+                            <div className="pt-1">
+                                <label className="text-[10px] font-bold text-neutral-500 uppercase mb-2 block">Costs</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] text-blue-400 font-bold flex items-center gap-1 justify-center"><Star size={8} /> XP</label>
+                                        <input
+                                            type="number"
+                                            value={selectedTank.xpCost || 0}
+                                            onChange={(e) => updateTank(selectedTank.id, 'xpCost', parseInt(e.target.value) || 0)}
+                                            className="w-full bg-neutral-950 border border-neutral-700 focus:border-blue-500 focus:outline-none text-center rounded-sm text-sm py-1.5 text-blue-400"
+                                        />
                                     </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1 h-4">
-                                        {selectedTank.costType === 'gold' ? <Coins size={10} className="text-yellow-500" /> : <Sparkles size={10} className="text-blue-500" />}
-                                        {selectedTank.costType === 'gold' ? ' Gold Cost' : ' XP Cost'}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={selectedTank.costType === 'gold' ? (selectedTank.goldCost || 0) : (selectedTank.xpCost || 0)}
-                                        onChange={(e) => updateTank(selectedTank.id, selectedTank.costType === 'gold' ? 'goldCost' : 'xpCost', parseInt(e.target.value) || 0)}
-                                        className={`w-full bg-neutral-950 border rounded-sm h-9 px-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none ${selectedTank.costType === 'gold' ? 'border-yellow-900/50 text-yellow-500' : 'border-neutral-700'}`}
-                                    />
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] text-neutral-400 font-bold flex items-center gap-1 justify-center"><Coins size={8} /> SILVER</label>
+                                        <input
+                                            type="number"
+                                            value={selectedTank.silverCost || 0}
+                                            onChange={(e) => updateTank(selectedTank.id, 'silverCost', parseInt(e.target.value) || 0)}
+                                            className="w-full bg-neutral-950 border border-neutral-700 focus:border-neutral-500 focus:outline-none text-center rounded-sm text-sm py-1.5 text-neutral-300"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[9px] text-yellow-500 font-bold flex items-center gap-1 justify-center"><Coins size={8} /> GOLD</label>
+                                        <input
+                                            type="number"
+                                            value={selectedTank.goldCost || 0}
+                                            onChange={(e) => updateTank(selectedTank.id, 'goldCost', parseInt(e.target.value) || 0)}
+                                            className="w-full bg-neutral-950 border border-yellow-900/50 focus:border-yellow-500 focus:outline-none text-center rounded-sm text-sm py-1.5 text-yellow-500 font-bold"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>

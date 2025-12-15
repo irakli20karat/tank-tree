@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, X, Link2, Coins } from 'lucide-react';
+import { AlertTriangle, X, Link2, Coins, Star } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
 const TankCard = ({
@@ -67,7 +67,7 @@ const TankCard = ({
         ...styleOverride
     };
 
-    const isGold = tank.costType === 'gold';
+    const isGold = (tank.goldCost > 0);
     const nameColor = isSelected ? '#fbbf24' : (isGold ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4'));
 
     return (
@@ -75,10 +75,10 @@ const TankCard = ({
             ref={setRef}
             onMouseDown={(e) => onMouseDown && onMouseDown(e, tank)}
             onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => { 
-                e.stopPropagation(); 
+            onDoubleClick={(e) => {
+                e.stopPropagation();
                 if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-                onEdit && onEdit(tank); 
+                onEdit && onEdit(tank);
             }}
             style={style}
             className={`
@@ -101,11 +101,11 @@ const TankCard = ({
                 </div>
             )}
 
-            <div 
+            <div
                 className="absolute inset-0 z-0 pointer-events-none"
                 style={{
                     background: `linear-gradient(335deg, ${mainColor}, transparent)`,
-                    opacity: 0.15 
+                    opacity: 0.15
                 }}
             />
 
@@ -146,27 +146,31 @@ const TankCard = ({
                 </div>
             </div>
 
-            <div className="p-2 text-center w-full relative z-10 bg-transparent">
+            <div className="p-2 text-center w-full relative z-10 bg-transparent flex flex-col justify-between min-h-[48px]">
                 <h3
                     className={`text-xs truncate w-full font-mono mb-1 drop-shadow-md ${isGold ? 'font-bold uppercase tracking-wide' : 'font-medium'}`}
                     style={{ color: nameColor }}
                 >
                     {tank.name || 'Unnamed'}
                 </h3>
-                
-                {isGold ? (
-                    tank.goldCost > 0 && (
-                        <p className="text-[10px] text-yellow-500 font-mono drop-shadow-md flex items-center justify-center gap-1 font-bold">
-                            <Coins size={8} /> {tank.goldCost}
+
+                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-0.5">
+                    {tank.xpCost > 0 && (
+                        <p className="text-[10px] text-blue-400 font-mono drop-shadow-md flex items-center gap-0.5">
+                            <Star size={8} className="stroke-[2.5]" /> {tank.xpCost}
                         </p>
-                    )
-                ) : (
-                    tank.xpCost > 0 && (
-                        <p className="text-[10px] text-neutral-400 font-mono drop-shadow-md">
-                            XP: {tank.xpCost}
+                    )}
+                    {tank.silverCost > 0 && (
+                        <p className="text-[10px] text-neutral-300 font-mono drop-shadow-md flex items-center gap-0.5">
+                            <Coins size={8} className="stroke-[2.5]" /> {tank.silverCost}
                         </p>
-                    )
-                )}
+                    )}
+                    {tank.goldCost > 0 && (
+                        <p className="text-[10px] text-yellow-500 font-mono drop-shadow-md flex items-center gap-0.5 font-bold">
+                            <Coins size={8} className="stroke-[2.5]" /> {tank.goldCost}
+                        </p>
+                    )}
+                </div>
             </div>
 
             {!isDragging && !styleOverride.position && onDelete && (

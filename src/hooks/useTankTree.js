@@ -52,7 +52,7 @@ export const useTankTree = () => {
   useEffect(() => {
     const handleBeforeUnload = (e) => {
       e.preventDefault();
-      e.returnValue = ''; 
+      e.returnValue = '';
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -95,6 +95,15 @@ export const useTankTree = () => {
     return () => clearTimeout(timer);
   }, [tanks, tiers, groups, isReadyToSave, showRestoreModal]);
 
+  const sanitizeTankData = (tanks) => {
+    return tanks.map(t => ({
+      ...t,
+      silverCost: typeof t.silverCost === 'number' ? t.silverCost : 0,
+      xpCost: typeof t.xpCost === 'number' ? t.xpCost : 0,
+      goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0
+    }));
+  };
+
   const handleRestoreAutosave = () => {
     try {
       const savedRaw = localStorage.getItem(AUTOSAVE_KEY);
@@ -103,7 +112,7 @@ export const useTankTree = () => {
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers);
           setGroups(data.groups);
-          setTanks(data.tanks);
+          setTanks(sanitizeTankData(data.tanks));
 
           setSelectedTankId(null);
           setSelectedIds(new Set());
@@ -184,8 +193,13 @@ export const useTankTree = () => {
       try {
         const data = JSON.parse(ev.target.result);
         if (data.tanks && data.tiers && data.groups) {
-          setTiers(data.tiers); setGroups(data.groups); setTanks(data.tanks);
-          setSelectedTankId(null); setSelectedIds(new Set()); setConnectionSourceId(null);
+          setTiers(data.tiers);
+          setGroups(data.groups);
+          setTanks(sanitizeTankData(data.tanks));
+
+          setSelectedTankId(null);
+          setSelectedIds(new Set());
+          setConnectionSourceId(null);
         }
       } catch (err) { console.error(err); alert("Failed to parse."); }
     };
@@ -283,6 +297,7 @@ export const useTankTree = () => {
       parentIds: parentId ? [parentId] : [],
       groupId: inheritedGroup,
       xpCost: 0,
+      silverCost: 0,
       goldCost: 0,
       costType: 'xp',
       columnIndex: targetCol
@@ -292,6 +307,7 @@ export const useTankTree = () => {
     handleSetSelectedTankId(newTank.id);
     setIsSidebarOpen(true);
   };
+
 
   const handleDeleteTier = (id) => {
     const isLast = tiers[tiers.length - 1].id === id;
