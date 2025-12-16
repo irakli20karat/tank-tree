@@ -9,7 +9,7 @@ const TierZone = ({
     handlers, registerRef, isLastTier, layoutMode
 }) => {
     const isTargetTier = draggingState.currentTierId === tier.id;
-    
+
     const [hoverIndex, setHoverIndex] = useState(null);
     const zoneRef = useRef(null);
     const isHorizontal = layoutMode === 'horizontal';
@@ -34,6 +34,18 @@ const TierZone = ({
         }
     };
 
+    const bgStyle = tier.regionColor
+        ? { backgroundColor: `${tier.regionColor}15` }
+        : {};
+
+    const borderStyle = tier.regionColor
+        ? { borderColor: tier.regionColor }
+        : {};
+
+    const textStyle = tier.regionColor
+        ? { color: tier.regionColor }
+        : {};
+
     const handleMouseLeave = () => setHoverIndex(null);
 
     const isOccupied = tanks.some(t => t.columnIndex === hoverIndex);
@@ -56,11 +68,29 @@ const TierZone = ({
         <div
             id={`tier-${tier.id}`}
             data-tier-id={tier.id}
+            style={bgStyle}
             className={`flex relative group/tier transition-colors duration-200 ${containerClass}
-        ${isTargetTier && draggingState.isDragging ? 'bg-neutral-900/30' : 'hover:bg-neutral-900/10'}
-      `}
+                ${isTargetTier && draggingState.isDragging ? 'bg-neutral-900/30' : ''}
+                ${!tier.regionColor && 'hover:bg-neutral-900/10'} 
+            `}
         >
-            <div className={`flex-shrink-0 bg-neutral-950 flex items-center justify-center z-10 sticky top-0 left-0 shadow-sm ${headerClass}`}>
+            <div
+                className={`flex-shrink-0 bg-neutral-950 flex items-center justify-center z-10 sticky top-0 left-0 shadow-sm ${headerClass}`}
+                style={borderStyle}
+            >
+                <div className="flex flex-col items-center">
+                    {tier.regionName && (
+                        <span
+                            className={`text-[9px] uppercase font-bold tracking-wider mt-1 max-w-[60px] text-center truncate select-none ${layoutMode === 'horizontal' ? 'w-full' : ''}`}
+                            style={textStyle}
+                            title={tier.regionName}
+                        >
+                            {tier.regionName}
+                        </span>
+                    )}
+                </div>
+
+                <div className={`flex gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity ${isHorizontal ? 'ml-auto' : 'mt-3 flex-col'}`}></div>
                 <span className="text-xl font-bold text-neutral-700 font-serif select-none">{tier.roman}</span>
                 <div className={`flex gap-1 opacity-0 group-hover/tier:opacity-100 transition-opacity ${isHorizontal ? 'ml-auto' : 'mt-3 flex-col'}`}>
                     {isLastTier && (
@@ -105,18 +135,18 @@ const TierZone = ({
                             key={tank.id}
                             tank={tank}
                             group={groups.find(g => g.id === tank.groupId) || groups[0]}
-                            
+
                             isSelected={selectedIds ? selectedIds.has(tank.id) : (selectedTankId === tank.id)}
-                            
+
                             isConnectionSource={connectionSourceId === tank.id}
                             isHighlighted={highlightedIds && highlightedIds.has(tank.id)}
                             onEdit={handlers.onEditTank}
                             onDelete={handlers.onDeleteTank}
                             onMouseDown={handlers.onDragStart}
                             setRef={(el) => registerRef(tank.id, el)}
-                            
+
                             isDragging={draggingState.isDragging && selectedIds?.has(tank.id)}
-                            
+
                             conflictType={conflicts[tank.id]}
                             styleOverride={isHorizontal ? {
                                 gridRowStart: (tank.columnIndex || 0) + 1,

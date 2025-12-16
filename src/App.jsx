@@ -19,25 +19,25 @@ export default function TankTreeArchitect() {
     if (state.isExporting) return;
     e.stopPropagation();
     actions.setTiers([
-      ...state.tiers, 
+      ...state.tiers,
       { id: generateId(), roman: toRoman(state.tiers.length + 1), index: state.tiers.length }
     ]);
   };
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
-      
-      <RestoreModal 
+
+      <RestoreModal
         isOpen={state.showRestoreModal}
         onRestore={actions.handleRestoreAutosave}
         onDiscard={actions.handleDiscardAutosave}
       />
-      
+
       <ExportLoader isExporting={state.isExporting} />
-      
-      <DocsModal 
-        isOpen={state.isDocsOpen} 
-        onClose={() => actions.setIsDocsOpen(false)} 
+
+      <DocsModal
+        isOpen={state.isDocsOpen}
+        onClose={() => actions.setIsDocsOpen(false)}
       />
 
       <Sidebar
@@ -59,6 +59,7 @@ export default function TankTreeArchitect() {
         handleAddGroup={actions.handleAddGroup}
         handleDeleteGroup={actions.handleDeleteGroup}
         handleGroupIconUpload={actions.handleGroupIconUpload}
+        setTierRegion={actions.setTierRegion}
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-neutral-950 relative">
@@ -74,11 +75,10 @@ export default function TankTreeArchitect() {
         >
           <div
             ref={refs?.exportRef}
-            className={`relative p-4 flex ${
-              state.layoutMode === 'horizontal'
+            className={`relative p-4 flex ${state.layoutMode === 'horizontal'
                 ? 'flex-row min-h-full h-fit min-w-full'
                 : 'flex-col min-w-full w-fit min-h-full pb-20'
-            }`}
+              }`}
           >
             <div className="absolute inset-0 pointer-events-none">
               <ConnectionLines
@@ -93,7 +93,7 @@ export default function TankTreeArchitect() {
             </div>
 
             <div className={`flex relative z-10 ${state.layoutMode === 'horizontal' ? 'flex-row h-full' : 'flex-col w-full'}`}>
-              
+
               {state.tiers.map((tier, index) => (
                 <TierZone
                   key={tier.id}
@@ -134,7 +134,7 @@ export default function TankTreeArchitect() {
               </div>
             </div>
 
-            <DragOverlay 
+            <DragOverlay
               draggingState={state.draggingState}
               tanks={state.tanks}
               groups={state.groups}
