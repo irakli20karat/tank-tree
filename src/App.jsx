@@ -76,8 +76,8 @@ export default function TankTreeArchitect() {
           <div
             ref={refs?.exportRef}
             className={`relative p-4 flex ${state.layoutMode === 'horizontal'
-                ? 'flex-row min-h-full h-fit min-w-full'
-                : 'flex-col min-w-full w-fit min-h-full pb-20'
+              ? 'flex-row min-h-full h-fit min-w-full'
+              : 'flex-col min-w-full w-fit min-h-full pb-20'
               }`}
           >
             <div className="absolute inset-0 pointer-events-none">
