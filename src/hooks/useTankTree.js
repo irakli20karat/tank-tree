@@ -2,6 +2,13 @@ import { useState, useRef, useMemo, useEffect } from 'react';
 import domtoimage from 'dom-to-image';
 import { generateId, DEFAULT_GROUPS, getAllConnectedIds } from '../utils/utils';
 import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH } from '../utils/tankUtils';
+import {
+  processImageForStorage,
+  extractImageLibrary,
+  convertTanksToRefs,
+  resolveTankImages,
+  getImageByRef
+} from '../utils/imageUtils';
 
 const AUTOSAVE_KEY = 'tank-tree-autosave-v1';
 
@@ -15,6 +22,7 @@ export const useTankTree = () => {
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
+  const [imageLibrary, setImageLibrary] = useState({});
   const [selectedTankId, setSelectedTankId] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [connectionSourceId, setConnectionSourceId] = useState(null);
@@ -64,7 +72,16 @@ export const useTankTree = () => {
   useEffect(() => {
     if (!isReadyToSave || showRestoreModal) return;
     const timer = setTimeout(() => {
-      const dataToSave = { timestamp: Date.now(), tanks, tiers, groups };
+      const library = extractImageLibrary(tanks);
+      const tanksWithRefs = convertTanksToRefs(tanks, library);
+
+      const dataToSave = {
+        timestamp: Date.now(),
+        tanks: tanksWithRefs,
+        tiers,
+        groups,
+        imageLibrary: library
+      };
       localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
     }, 500);
     return () => clearTimeout(timer);
@@ -88,7 +105,13 @@ export const useTankTree = () => {
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers);
           setGroups(data.groups);
-          setTanks(sanitizeTankData(data.tanks));
+
+          const library = data.imageLibrary || extractImageLibrary(data.tanks);
+          setImageLibrary(library);
+
+          const resolvedTanks = resolveTankImages(data.tanks, library);
+          setTanks(sanitizeTankData(resolvedTanks));
+
           setSelectedTankId(null);
           setSelectedIds(new Set());
           setConnectionSourceId(null);
@@ -134,6 +157,7 @@ export const useTankTree = () => {
       setTiers(generateTiers(5));
       setGroups(DEFAULT_GROUPS);
       setTanks(INITIAL_TANKS);
+      setImageLibrary({});
       setSelectedTankId(null);
       setSelectedIds(new Set());
       setConnectionSourceId(null);
@@ -142,11 +166,27 @@ export const useTankTree = () => {
   };
 
   const handleSaveProject = () => {
-    const projectData = { version: "1.0", timestamp: new Date().toISOString(), tiers, groups, tanks };
+    const library = extractImageLibrary(tanks);
+    const tanksWithRefs = convertTanksToRefs(tanks, library);
+
+    const projectData = {
+      version: "1.1",
+      timestamp: new Date().toISOString(),
+      tiers,
+      groups,
+      tanks: tanksWithRefs,
+      imageLibrary: library
+    };
+
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = `tank-tree.json`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tank-tree.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleLoadClick = () => fileInputRef.current?.click();
@@ -160,7 +200,13 @@ export const useTankTree = () => {
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers);
           setGroups(data.groups);
-          setTanks(sanitizeTankData(data.tanks));
+
+          const library = data.imageLibrary || extractImageLibrary(data.tanks);
+          setImageLibrary(library);
+
+          const resolvedTanks = resolveTankImages(data.tanks, library);
+          setTanks(sanitizeTankData(resolvedTanks));
+
           setSelectedTankId(null);
           setSelectedIds(new Set());
           setConnectionSourceId(null);
@@ -173,15 +219,12 @@ export const useTankTree = () => {
   const handleSaveImage = async () => {
     if (!exportRef.current) return;
 
-
     const previousSelectedId = selectedTankId;
     const previousSelectedIds = new Set(selectedIds);
-
 
     setIsExporting(true);
     setSelectedTankId(null);
     setSelectedIds(new Set());
-
 
     await new Promise(resolve => setTimeout(resolve, 150));
 
@@ -190,7 +233,6 @@ export const useTankTree = () => {
       const contentWrapper = node.querySelector('.z-10');
       const PADDING = 60;
       const SCALE = 2;
-
 
       let exportWidth, exportHeight;
       if (layoutMode === 'horizontal') {
@@ -202,8 +244,6 @@ export const useTankTree = () => {
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
-
-
 
       const dataUrl = await domtoimage.toPng(node, {
         width: exportWidth * SCALE,
@@ -218,7 +258,6 @@ export const useTankTree = () => {
         }
       });
 
-
       const link = document.createElement('a');
       link.download = `tech-tree-${new Date().toISOString().slice(0, 10)}.png`;
       link.href = dataUrl;
@@ -228,15 +267,11 @@ export const useTankTree = () => {
       console.error('Export failed:', err);
       alert("Export failed. Please try again.");
     } finally {
-
       setSelectedTankId(previousSelectedId);
       setSelectedIds(previousSelectedIds);
       setIsExporting(false);
     }
   };
-
-
-
 
   const updateTank = (id, field, value) => {
     setTanks(prevTanks => prevTanks.map(t => t.id === id ? { ...t, [field]: value } : t));
@@ -304,22 +339,40 @@ export const useTankTree = () => {
     setTiers(tiers.filter(t => t.id !== id));
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file && selectedTankId) {
-      const reader = new FileReader();
-      reader.onloadend = () => updateTank(selectedTankId, 'image', reader.result);
-      reader.readAsDataURL(file);
+      try {
+        const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
+
+        if (isNew) {
+          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
+        }
+
+        updateTank(selectedTankId, 'image', imageData || imageLibrary[imageRef]);
+      } catch (err) {
+        console.error('Image upload failed:', err);
+        alert('Failed to process image');
+      }
     }
     e.target.value = '';
   };
 
-  const handleBgImageUpload = (e) => {
+  const handleBgImageUpload = async (e) => {
     const file = e.target.files[0];
     if (file && selectedTankId) {
-      const reader = new FileReader();
-      reader.onloadend = () => updateTank(selectedTankId, 'bgImage', reader.result);
-      reader.readAsDataURL(file);
+      try {
+        const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
+
+        if (isNew) {
+          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
+        }
+
+        updateTank(selectedTankId, 'bgImage', imageData || imageLibrary[imageRef]);
+      } catch (err) {
+        console.error('Background image upload failed:', err);
+        alert('Failed to process image');
+      }
     }
     e.target.value = '';
   };
@@ -333,12 +386,21 @@ export const useTankTree = () => {
     setGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
-  const handleGroupIconUpload = (e, groupId) => {
+  const handleGroupIconUpload = async (e, groupId) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => updateGroup(groupId, 'icon', reader.result);
-      reader.readAsDataURL(file);
+      try {
+        const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
+
+        if (isNew) {
+          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
+        }
+
+        updateGroup(groupId, 'icon', imageData || imageLibrary[imageRef]);
+      } catch (err) {
+        console.error('Icon upload failed:', err);
+        alert('Failed to process icon');
+      }
     }
     e.target.value = '';
   };
@@ -490,7 +552,7 @@ export const useTankTree = () => {
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal
+      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
@@ -500,6 +562,9 @@ export const useTankTree = () => {
       onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },
       onDeleteTank: (id) => { setTanks(tanks.filter(t => t.id !== id && !selectedIds.has(t.id))); handleSetSelectedTankId(null); },
       onDragStart: handleDragStart, onAddTank: handleAddTank, onDeleteTier: handleDeleteTier
+    },
+    utils: {
+      getImageByRef: (ref) => getImageByRef(ref, imageLibrary)
     }
   };
 };

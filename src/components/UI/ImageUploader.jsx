@@ -10,6 +10,15 @@ export const ImageUploader = ({
     const inputId = `file-upload-${label.replace(/\s+/g, '-').toLowerCase()}`;
     const hasImage = value && typeof value === 'string' && value.length > 0;
 
+    const handleUrlInput = (url) => {
+        if (!url || url.trim() === '') {
+            onUrlChange('');
+            return;
+        }
+
+        onUrlChange(url.trim());
+    };
+
     return (
         <div className="space-y-2">
             {label && (
@@ -28,7 +37,14 @@ export const ImageUploader = ({
                             src={value}
                             alt="Preview"
                             className="w-full h-full object-contain"
+                            onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.parentElement.querySelector('.error-msg')?.classList.remove('hidden');
+                            }}
                         />
+                        <div className="hidden error-msg text-xs text-red-400 text-center px-2">
+                            Failed to load image
+                        </div>
                         <button
                             onClick={(e) => { e.stopPropagation(); onClear(); }}
                             className="absolute top-2 right-2 p-1.5 bg-neutral-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm hover:text-red-400"
@@ -60,7 +76,7 @@ export const ImageUploader = ({
                     type="text"
                     placeholder="Or paste Image URL..."
                     value={hasImage && !value.startsWith('data:') ? value : ''}
-                    onChange={(e) => onUrlChange(e.target.value)}
+                    onChange={(e) => handleUrlInput(e.target.value)}
                     className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
                 />
             </div>
