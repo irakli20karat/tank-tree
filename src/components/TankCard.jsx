@@ -8,7 +8,6 @@ const TankCard = ({
     isSelected,
     isConnectionSource,
     isHighlighted,
-    onEdit,
     onDelete,
     onMouseDown,
     isDragging,
@@ -70,16 +69,17 @@ const TankCard = ({
     const isGold = (tank.goldCost > 0);
     const nameColor = isSelected ? '#fbbf24' : (isGold ? '#fbbf24' : (isHighlighted ? mainColor : '#d4d4d4'));
 
+    const handleOpenLink = (e) => {
+        e.stopPropagation();
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        window.open(tank.url, '_blank', 'noopener,noreferrer');
+    };
+
     return (
         <div
             ref={setRef}
             onMouseDown={(e) => onMouseDown && onMouseDown(e, tank)}
             onClick={(e) => e.stopPropagation()}
-            onDoubleClick={(e) => {
-                e.stopPropagation();
-                if (e.ctrlKey || e.metaKey || e.shiftKey) return;
-                onEdit && onEdit(tank);
-            }}
             style={style}
             className={`
                 relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
@@ -121,6 +121,12 @@ const TankCard = ({
                 `}>
                     <AlertTriangle size={8} />
                     {conflictType === 'overlap' ? 'OVERLAP' : 'BLOCK'}
+                </div>
+            )}
+
+            {tank.url && tank.url.trim() && (
+                <div className="absolute top-1 left-1 p-1 bg-neutral-900 border border-blue-500 text-blue-400 rounded-sm z-30 opacity-0 group-hover:opacity-100 transition-opacity cursor-alias" onClick={handleOpenLink}>
+                    <Link2 size={16} />
                 </div>
             )}
 

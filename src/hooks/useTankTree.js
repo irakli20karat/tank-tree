@@ -93,7 +93,8 @@ export const useTankTree = () => {
       ...t,
       silverCost: typeof t.silverCost === 'number' ? t.silverCost : 0,
       xpCost: typeof t.xpCost === 'number' ? t.xpCost : 0,
-      goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0
+      goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0,
+      url: typeof t.url === 'string' ? t.url : ''
     }));
   };
 
@@ -309,7 +310,8 @@ export const useTankTree = () => {
       image: null,
       parentIds: parentId ? [parentId] : [],
       groupId: inheritedGroup,
-      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol
+      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol,
+      url: ''
     };
 
     setTanks(prev => [...prev, newTank]);

@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, MoveHorizontal, Network, Link as LinkIcon, Unlink, Trash2, ArrowDownCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, MoveHorizontal, Network, Link as LinkIcon, Unlink, Trash2, ArrowDownCircle, ExternalLink } from 'lucide-react';
 import { GroupIcon } from '../GroupIcon';
 import { CostInput } from '../UI/CostInput';
 import { ImageUploader } from '../UI/ImageUploader';
@@ -76,6 +76,31 @@ export const SingleSelectView = ({
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase">Name</label>
                     <input type="text" value={tank.name} onChange={(e) => updateTank(tank.id, 'name', e.target.value)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none" />
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
+                        <ExternalLink size={12} />
+                        Link URL
+                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(opens on double-click)</span>
+                    </label>
+                    <input
+                        type="url"
+                        value={tank.url || ''}
+                        onChange={(e) => updateTank(tank.id, 'url', e.target.value)}
+                        placeholder="https://example.com"
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none font-mono text-xs"
+                    />
+                    {tank.url && tank.url.trim() && (
+                        <a
+                            href={tank.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-1"
+                        >
+                            <ExternalLink size={10} /> Test link
+                        </a>
+                    )}
                 </div>
 
                 <div className="space-y-1">
