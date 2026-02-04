@@ -83,7 +83,7 @@ const TankCard = ({
             style={style}
             className={`
                 relative group flex flex-col items-center w-36 transition-none ease-out justify-self-center select-none
-                border rounded-sm overflow-hidden
+                border rounded-sm
                 ${!isDragging && !styleOverride.position ? 'hover:scale-[1.02] cursor-grab active:cursor-grabbing' : ''}
             `}
         >
@@ -125,8 +125,8 @@ const TankCard = ({
             )}
 
             {tank.url && tank.url.trim() && (
-                <div className="absolute top-1 left-1 p-1 bg-neutral-900 border border-blue-500 text-blue-400 rounded-sm z-30 opacity-0 group-hover:opacity-100 transition-opacity cursor-alias" onClick={handleOpenLink}>
-                    <Link2 size={16} />
+                <div className="absolute -top-2 -left-2 p-1 bg-neutral-900 border border-blue-500 text-blue-400 rounded-sm z-30 opacity-0 group-hover:opacity-100 transition-opacity cursor-alias" onClick={handleOpenLink}>
+                    <Link2 size={12} />
                 </div>
             )}
 
@@ -184,7 +184,7 @@ const TankCard = ({
                     onClick={(e) => { e.stopPropagation(); onDelete(tank.id); }}
                     className="absolute -top-2 -right-2 p-1 bg-neutral-900 border border-neutral-800 text-neutral-500 hover:text-red-500 hover:border-red-900 opacity-0 group-hover:opacity-100 transition-all rounded-sm z-30"
                 >
-                    <X size={10} />
+                    <X size={12} />
                 </button>
             )}
         </div>
