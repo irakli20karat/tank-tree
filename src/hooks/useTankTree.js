@@ -40,12 +40,6 @@ export const useTankTree = () => {
     dragDelta: { col: 0, tierIndex: 0 }
   });
 
-  const [selectionRect, setSelectionRect] = useState({
-    isActive: false,
-    startPoint: null,
-    currentPoint: null
-  });
-
   const tankRefs = useRef({});
   const containerRef = useRef(null);
   const exportRef = useRef(null);
@@ -59,9 +53,7 @@ export const useTankTree = () => {
     initialPositions: {},
     hasMoved: false,
     justDropped: false,
-    wasAlreadySelected: false,
-    isBoxSelecting: false,
-    boxSelectStart: null
+    wasAlreadySelected: false
   });
 
   const getStorageSize = (data) => {
@@ -612,86 +604,12 @@ export const useTankTree = () => {
 
   const handleEmptyClick = (e) => {
     if (dragData.current.justDropped) return;
-
-    if (!e.ctrlKey && !e.metaKey) {
-      dragData.current.isBoxSelecting = true;
-      dragData.current.boxSelectStart = { x: e.clientX, y: e.clientY };
-
-      setSelectionRect({
-        isActive: true,
-        startPoint: { x: e.clientX, y: e.clientY },
-        currentPoint: { x: e.clientX, y: e.clientY }
-      });
-
-      window.addEventListener('mousemove', handleBoxSelectMove);
-      window.addEventListener('mouseup', handleBoxSelectEnd);
-      return;
-    }
-
     if (!e.shiftKey && !e.ctrlKey && !e.metaKey) handleSetSelectedTankId(null);
-  };
-
-  const handleBoxSelectMove = (e) => {
-    if (!dragData.current.isBoxSelecting) return;
-
-    setSelectionRect(prev => ({
-      ...prev,
-      currentPoint: { x: e.clientX, y: e.clientY }
-    }));
-
-    const start = dragData.current.boxSelectStart;
-    const current = { x: e.clientX, y: e.clientY };
-
-    const minX = Math.min(start.x, current.x);
-    const maxX = Math.max(start.x, current.x);
-    const minY = Math.min(start.y, current.y);
-    const maxY = Math.max(start.y, current.y);
-
-    const selectedInRect = new Set();
-
-    tanks.forEach(tank => {
-      const tankEl = tankRefs.current[tank.id];
-      if (!tankEl) return;
-
-      const rect = tankEl.getBoundingClientRect();
-
-      const tankCenterX = rect.left + rect.width / 2;
-      const tankCenterY = rect.top + rect.height / 2;
-
-      if (tankCenterX >= minX && tankCenterX <= maxX &&
-        tankCenterY >= minY && tankCenterY <= maxY) {
-        selectedInRect.add(tank.id);
-      }
-    });
-
-    if (selectedInRect.size > 0) {
-      setSelectedIds(selectedInRect);
-      setSelectedTankId(Array.from(selectedInRect)[0]);
-    }
-  };
-
-  const handleBoxSelectEnd = () => {
-    dragData.current.isBoxSelecting = false;
-    dragData.current.boxSelectStart = null;
-    dragData.current.justDropped = true;
-
-    setSelectionRect({
-      isActive: false,
-      startPoint: null,
-      currentPoint: null
-    });
-
-    setTimeout(() => {
-      if (dragData.current) dragData.current.justDropped = false;
-    }, 50);
-
-    window.removeEventListener('mousemove', handleBoxSelectMove);
-    window.removeEventListener('mouseup', handleBoxSelectEnd);
   };
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning, selectionRect
+      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {

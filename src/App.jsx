@@ -12,7 +12,6 @@ import RestoreModal from './components/RestoreModal';
 import ExportLoader from './components/ExportLoader';
 import DragOverlay from './components/DragOverlay';
 import StorageWarning from './components/StorageWarning';
-import SelectionRectangle from './components/SelectionRectangle';
 
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
@@ -79,16 +78,8 @@ export default function TankTreeArchitect() {
             actions.handleEmptyClick(e);
             actions.setConnectionSourceId(null);
           }}
-          onMouseDown={actions.handleEmptyClick}
           className="flex-1 overflow-auto relative custom-scrollbar"
         >
-          <SelectionRectangle
-            isActive={state.selectionRect.isActive}
-            startPoint={state.selectionRect.startPoint}
-            currentPoint={state.selectionRect.currentPoint}
-            containerRef={refs?.containerRef}
-          />
-
           <div
             ref={refs?.exportRef}
             className={`relative p-4 flex ${state.layoutMode === 'horizontal'
