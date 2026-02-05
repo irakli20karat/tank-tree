@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, MoveHorizontal, Network, Link as LinkIcon, Unlink, Trash2, ArrowDownCircle, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, MoveHorizontal, Network, Link as LinkIcon, Unlink, Trash2, ArrowDownCircle, ExternalLink, FileText } from 'lucide-react';
 import { GroupIcon } from '../GroupIcon';
 import { CostInput } from '../UI/CostInput';
 import { ImageUploader } from '../UI/ImageUploader';
@@ -80,9 +80,23 @@ export const SingleSelectView = ({
 
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
+                        <FileText size={12} />
+                        Description
+                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(shows on hover after 1.5s)</span>
+                    </label>
+                    <textarea
+                        value={tank.description || ''}
+                        onChange={(e) => updateTank(tank.id, 'description', e.target.value)}
+                        placeholder="Add a description..."
+                        rows={3}
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none resize-none font-mono text-xs"
+                    />
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
                         <ExternalLink size={12} />
                         Link URL
-                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(opens on double-click)</span>
                     </label>
                     <input
                         type="url"

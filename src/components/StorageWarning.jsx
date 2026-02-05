@@ -1,10 +1,10 @@
 import { AlertTriangle, XCircle, X } from 'lucide-react';
 
-export default function StorageWarning({ warning, onDismiss, onSaveProject }) {
+export default function StorageWarning({ warning, onDismiss }) {
     if (!warning) return null;
 
     return (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-2xl w-full mx-4 ${warning.type === 'error'
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-xl w-full mx-4 ${warning.type === 'error'
                 ? 'bg-red-900/90 border-red-700'
                 : 'bg-yellow-900/90 border-yellow-700'
             } border rounded-lg shadow-2xl backdrop-blur-sm`}>
@@ -17,23 +17,13 @@ export default function StorageWarning({ warning, onDismiss, onSaveProject }) {
                     )}
                 </div>
                 <div className="flex-1 min-w-0">
-                    <h3 className={`font-semibold mb-1 ${warning.type === 'error' ? 'text-red-200' : 'text-yellow-200'
+                    <h3 className={`font-semibold mb-1 text-sm ${warning.type === 'error' ? 'text-red-200' : 'text-yellow-200'
                         }`}>
-                        {warning.type === 'error' ? 'Storage Limit Exceeded' : 'Storage Warning'}
+                        {warning.type === 'error' ? 'Storage Limit Exceeded' : 'Warning'}
                     </h3>
-                    <p className="text-sm text-neutral-200 leading-relaxed">
+                    <p className="text-xs text-neutral-200 leading-relaxed">
                         {warning.message}
                     </p>
-                    {warning.type === 'error' && (
-                        <div className="mt-3 flex gap-2">
-                            <button
-                                onClick={onSaveProject}
-                                className="px-3 py-1.5 text-sm bg-red-700 hover:bg-red-600 text-white rounded transition-colors"
-                            >
-                                Save Project File
-                            </button>
-                        </div>
-                    )}
                 </div>
                 <button
                     onClick={onDismiss}

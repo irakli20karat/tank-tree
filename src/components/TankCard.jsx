@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, X, Link2, Coins, Star } from 'lucide-react';
 import { GroupIcon } from './GroupIcon';
 
@@ -21,6 +22,12 @@ const TankCard = ({
     const [bgError, setBgError] = useState(false);
     const [prevBgImage, setPrevBgImage] = useState(tank.bgImage);
 
+    const [tooltipRect, setTooltipRect] = useState(null);
+
+    const [showTooltip, setShowTooltip] = useState(false);
+    const hoverTimeoutRef = useRef(null);
+    const cardRef = useRef(null);
+
     if (tank.image !== prevImage) {
         setPrevImage(tank.image);
         setImageError(false);
@@ -30,6 +37,34 @@ const TankCard = ({
         setPrevBgImage(tank.bgImage);
         setBgError(false);
     }
+
+    useEffect(() => {
+        return () => {
+            if (hoverTimeoutRef.current) {
+                clearTimeout(hoverTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const handleMouseEnter = () => {
+        if (tank.description && tank.description.trim()) {
+            hoverTimeoutRef.current = setTimeout(() => {
+                if (cardRef.current) {
+                    setTooltipRect(cardRef.current.getBoundingClientRect());
+                }
+                setShowTooltip(true);
+            }, 1500);
+        }
+    };
+
+    const handleMouseLeave = () => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+            hoverTimeoutRef.current = null;
+        }
+        setShowTooltip(false);
+        setTooltipRect(null);
+    };
 
     const mainColor = group?.color || '#525252';
 
@@ -77,8 +112,13 @@ const TankCard = ({
 
     return (
         <div
-            ref={setRef}
+            ref={(el) => {
+                cardRef.current = el;
+                setRef(el);
+            }}
             onMouseDown={(e) => onMouseDown && onMouseDown(e, tank)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             onClick={(e) => e.stopPropagation()}
             style={style}
             className={`
@@ -129,6 +169,31 @@ const TankCard = ({
                     <Link2 size={12} />
                 </div>
             )}
+
+            {showTooltip && tooltipRect && tank.description?.trim() &&
+                createPortal(
+                    <div
+                        className="fixed z-[100000] pointer-events-none"
+                        style={{
+                            top: tooltipRect.top + tooltipRect.height / 2,
+                            left: tooltipRect.right + 8,
+                            transform: 'translateY(-50%)',
+                        }}
+                    >
+                        <div className="relative bg-neutral-900 border border-neutral-700 rounded-sm px-3 py-2 shadow-xl min-w-[20rem] max-w-lg">
+                            <p className="text-xs text-neutral-300 whitespace-pre-wrap">
+                                {tank.description}
+                            </p>
+
+                            <div className="absolute left-[-4px] top-1/2 -translate-y-1/2
+                                w-0 h-0
+                                border-t-4 border-b-4 border-r-4
+                                border-t-transparent border-b-transparent border-r-neutral-700" />
+                        </div>
+                    </div>,
+                    document.body
+                )
+            }
 
             <div className="h-20 w-full relative border-b border-neutral-800/50 z-10">
                 {tank.image && !imageError ? (
