@@ -11,8 +11,8 @@ import {
 } from '../utils/imageUtils';
 
 const AUTOSAVE_KEY = 'tank-tree-autosave-v1';
-const MAX_STORAGE_SIZE = 5 * 1024 * 1024; // 5MB (conservative estimate, actual limit is ~10MB)
-const WARNING_THRESHOLD = 0.8; // Warn at 80% capacity
+const MAX_STORAGE_SIZE = 5 * 1024 * 1024;
+const WARNING_THRESHOLD = 0.8;
 
 export const useTankTree = () => {
 
@@ -21,7 +21,7 @@ export const useTankTree = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isReadyToSave, setIsReadyToSave] = useState(false);
-  const [storageWarning, setStorageWarning] = useState(null); // New state for storage warnings
+  const [storageWarning, setStorageWarning] = useState(null);
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
@@ -40,6 +40,12 @@ export const useTankTree = () => {
     dragDelta: { col: 0, tierIndex: 0 }
   });
 
+  const [selectionRect, setSelectionRect] = useState({
+    isActive: false,
+    startPoint: null,
+    currentPoint: null
+  });
+
   const tankRefs = useRef({});
   const containerRef = useRef(null);
   const exportRef = useRef(null);
@@ -53,15 +59,15 @@ export const useTankTree = () => {
     initialPositions: {},
     hasMoved: false,
     justDropped: false,
-    wasAlreadySelected: false
+    wasAlreadySelected: false,
+    isBoxSelecting: false,
+    boxSelectStart: null
   });
 
-  // Helper function to calculate storage size
   const getStorageSize = (data) => {
     return new Blob([JSON.stringify(data)]).size;
   };
 
-  // Helper function to check storage capacity
   const checkStorageCapacity = (dataToSave) => {
     const dataSize = getStorageSize(dataToSave);
     const percentage = dataSize / MAX_STORAGE_SIZE;
@@ -117,14 +123,12 @@ export const useTankTree = () => {
         imageLibrary: library
       };
 
-      // Check storage capacity before saving
       const canSave = checkStorageCapacity(dataToSave);
 
       if (canSave) {
         try {
           localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
         } catch (error) {
-          // Handle QuotaExceededError
           if (error.name === 'QuotaExceededError' || error.code === 22) {
             setStorageWarning({
               type: 'error',
@@ -454,7 +458,7 @@ export const useTankTree = () => {
         const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
 
         if (isNew) {
-          setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef}));
+          setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef }));
         }
 
         updateGroup(groupId, 'icon', imageData || imageLibrary[imageRef]);
@@ -608,12 +612,86 @@ export const useTankTree = () => {
 
   const handleEmptyClick = (e) => {
     if (dragData.current.justDropped) return;
+
+    if (!e.ctrlKey && !e.metaKey) {
+      dragData.current.isBoxSelecting = true;
+      dragData.current.boxSelectStart = { x: e.clientX, y: e.clientY };
+
+      setSelectionRect({
+        isActive: true,
+        startPoint: { x: e.clientX, y: e.clientY },
+        currentPoint: { x: e.clientX, y: e.clientY }
+      });
+
+      window.addEventListener('mousemove', handleBoxSelectMove);
+      window.addEventListener('mouseup', handleBoxSelectEnd);
+      return;
+    }
+
     if (!e.shiftKey && !e.ctrlKey && !e.metaKey) handleSetSelectedTankId(null);
+  };
+
+  const handleBoxSelectMove = (e) => {
+    if (!dragData.current.isBoxSelecting) return;
+
+    setSelectionRect(prev => ({
+      ...prev,
+      currentPoint: { x: e.clientX, y: e.clientY }
+    }));
+
+    const start = dragData.current.boxSelectStart;
+    const current = { x: e.clientX, y: e.clientY };
+
+    const minX = Math.min(start.x, current.x);
+    const maxX = Math.max(start.x, current.x);
+    const minY = Math.min(start.y, current.y);
+    const maxY = Math.max(start.y, current.y);
+
+    const selectedInRect = new Set();
+
+    tanks.forEach(tank => {
+      const tankEl = tankRefs.current[tank.id];
+      if (!tankEl) return;
+
+      const rect = tankEl.getBoundingClientRect();
+
+      const tankCenterX = rect.left + rect.width / 2;
+      const tankCenterY = rect.top + rect.height / 2;
+
+      if (tankCenterX >= minX && tankCenterX <= maxX &&
+        tankCenterY >= minY && tankCenterY <= maxY) {
+        selectedInRect.add(tank.id);
+      }
+    });
+
+    if (selectedInRect.size > 0) {
+      setSelectedIds(selectedInRect);
+      setSelectedTankId(Array.from(selectedInRect)[0]);
+    }
+  };
+
+  const handleBoxSelectEnd = () => {
+    dragData.current.isBoxSelecting = false;
+    dragData.current.boxSelectStart = null;
+    dragData.current.justDropped = true;
+
+    setSelectionRect({
+      isActive: false,
+      startPoint: null,
+      currentPoint: null
+    });
+
+    setTimeout(() => {
+      if (dragData.current) dragData.current.justDropped = false;
+    }, 50);
+
+    window.removeEventListener('mousemove', handleBoxSelectMove);
+    window.removeEventListener('mouseup', handleBoxSelectEnd);
   };
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
+      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning, selectionRect
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
