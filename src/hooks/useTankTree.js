@@ -11,6 +11,8 @@ import {
 } from '../utils/imageUtils';
 
 const AUTOSAVE_KEY = 'tank-tree-autosave-v1';
+const MAX_STORAGE_SIZE = 5 * 1024 * 1024; // 5MB (conservative estimate, actual limit is ~10MB)
+const WARNING_THRESHOLD = 0.8; // Warn at 80% capacity
 
 export const useTankTree = () => {
 
@@ -19,6 +21,7 @@ export const useTankTree = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [isReadyToSave, setIsReadyToSave] = useState(false);
+  const [storageWarning, setStorageWarning] = useState(null); // New state for storage warnings
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
@@ -53,6 +56,37 @@ export const useTankTree = () => {
     wasAlreadySelected: false
   });
 
+  // Helper function to calculate storage size
+  const getStorageSize = (data) => {
+    return new Blob([JSON.stringify(data)]).size;
+  };
+
+  // Helper function to check storage capacity
+  const checkStorageCapacity = (dataToSave) => {
+    const dataSize = getStorageSize(dataToSave);
+    const percentage = dataSize / MAX_STORAGE_SIZE;
+
+    if (dataSize >= MAX_STORAGE_SIZE) {
+      setStorageWarning({
+        type: 'error',
+        message: `Project size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds storage limit. Autosave disabled. Please save your project as a file and reduce image sizes.`,
+        size: dataSize,
+        percentage: percentage
+      });
+      return false;
+    } else if (percentage >= WARNING_THRESHOLD) {
+      setStorageWarning({
+        type: 'warning',
+        message: `Project is using ${(percentage * 100).toFixed(0)}% of available storage (${(dataSize / 1024 / 1024).toFixed(2)}MB / ${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(0)}MB). Consider reducing image sizes to prevent autosave issues.`,
+        size: dataSize,
+        percentage: percentage
+      });
+      return true;
+    } else {
+      setStorageWarning(null);
+      return true;
+    }
+  };
 
   useEffect(() => {
     const handleBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
@@ -82,7 +116,27 @@ export const useTankTree = () => {
         groups,
         imageLibrary: library
       };
-      localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
+
+      // Check storage capacity before saving
+      const canSave = checkStorageCapacity(dataToSave);
+
+      if (canSave) {
+        try {
+          localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
+        } catch (error) {
+          // Handle QuotaExceededError
+          if (error.name === 'QuotaExceededError' || error.code === 22) {
+            setStorageWarning({
+              type: 'error',
+              message: 'Storage quota exceeded! Autosave failed. Please save your project as a file and reduce image sizes.',
+              size: getStorageSize(dataToSave),
+              percentage: 1
+            });
+          } else {
+            console.error('Failed to save to localStorage:', error);
+          }
+        }
+      }
     }, 500);
     return () => clearTimeout(timer);
   }, [tanks, tiers, groups, isReadyToSave, showRestoreModal]);
@@ -127,6 +181,10 @@ export const useTankTree = () => {
     setIsReadyToSave(true);
   };
 
+  const handleDismissStorageWarning = () => {
+    setStorageWarning(null);
+  };
+
   const maxIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridCapacity = Math.max(maxIndex + 3, 6);
 
@@ -162,6 +220,7 @@ export const useTankTree = () => {
       setSelectedTankId(null);
       setSelectedIds(new Set());
       setConnectionSourceId(null);
+      setStorageWarning(null);
       localStorage.removeItem(AUTOSAVE_KEY);
     }
   };
@@ -395,7 +454,7 @@ export const useTankTree = () => {
         const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
 
         if (isNew) {
-          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
+          setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef}));
         }
 
         updateGroup(groupId, 'icon', imageData || imageLibrary[imageRef]);
@@ -554,11 +613,11 @@ export const useTankTree = () => {
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary
+      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
-      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen, setIsDocsOpen, handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage, handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload, handleEmptyClick, handleRestoreAutosave, handleDiscardAutosave, handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload, setTierRegion, clearTierRegion
+      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen, setIsDocsOpen, handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage, handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload, handleEmptyClick, handleRestoreAutosave, handleDiscardAutosave, handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload, setTierRegion, clearTierRegion, handleDismissStorageWarning
     },
     handlers: {
       onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },

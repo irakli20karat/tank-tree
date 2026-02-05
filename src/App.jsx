@@ -11,6 +11,7 @@ import DocsModal from './components/DocsModal';
 import RestoreModal from './components/RestoreModal';
 import ExportLoader from './components/ExportLoader';
 import DragOverlay from './components/DragOverlay';
+import StorageWarning from './components/StorageWarning';
 
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
@@ -26,6 +27,12 @@ export default function TankTreeArchitect() {
 
   return (
     <div className="flex h-screen bg-neutral-950 text-neutral-300 font-sans overflow-hidden select-none">
+
+      <StorageWarning
+        warning={state.storageWarning}
+        onDismiss={actions.handleDismissStorageWarning}
+        onSaveProject={actions.handleSaveProject}
+      />
 
       <RestoreModal
         isOpen={state.showRestoreModal}
@@ -114,7 +121,6 @@ export default function TankTreeArchitect() {
                 />
               ))}
 
-              {/* Add New Tier Button => Watermark */}
               <div className={`
                 flex relative border-transparent opacity-50 hover:opacity-100 transition-opacity 
                 ${state.layoutMode === 'horizontal' ? 'w-16 h-full flex-col border-l border-neutral-800/20' : 'h-16 w-full flex-row border-t border-neutral-800/20'}
