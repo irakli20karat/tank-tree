@@ -36,6 +36,7 @@ const DragOverlay = ({ draggingState, tanks, groups, selectedIds, dragOverlayRef
               tank={tank}
               group={group}
               isSelected={true}
+              setRef={() => {}}
               styleOverride={{
                 position: 'static',
                 opacity: 0.9,
