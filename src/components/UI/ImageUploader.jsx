@@ -19,6 +19,78 @@ export const ImageUploader = ({
         onUrlChange(url.trim());
     };
 
+    const handlePasteFromClipboard = async () => {
+        try {
+            const clipboardItems = await navigator.clipboard.read();
+            
+            for (const clipboardItem of clipboardItems) {
+                for (const type of clipboardItem.types) {
+                    if (type.startsWith('image/')) {
+                        const blob = await clipboardItem.getType(type);
+                        const file = new File([blob], 'pasted-image.png', { type });
+                        
+                        const syntheticEvent = {
+                            target: {
+                                files: [file],
+                                value: ''
+                            }
+                        };
+                        onUpload(syntheticEvent);
+                        return;
+                    }
+                }
+            }
+            
+            const text = await navigator.clipboard.readText();
+            const trimmed = text.trim();
+            if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+                handleUrlInput(trimmed);
+            }
+        } catch (err) {
+            console.error('Failed to read clipboard:', err);
+        }
+    };
+
+    const handlePaste = async (e) => {
+        e.preventDefault();
+        
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            
+            if (item.type.startsWith('image/')) {
+                const file = item.getAsFile();
+                if (file) {
+                    const syntheticEvent = {
+                        target: {
+                            files: [file],
+                            value: ''
+                        }
+                    };
+                    onUpload(syntheticEvent);
+                }
+                return;
+            }
+            
+            if (item.type === 'text/plain') {
+                item.getAsString((text) => {
+                    const trimmed = text.trim();
+                    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+                        handleUrlInput(trimmed);
+                    }
+                });
+                return;
+            }
+        }
+    };
+
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        handlePasteFromClipboard();
+    };
+
     return (
         <div className="space-y-2">
             {label && (
@@ -30,6 +102,11 @@ export const ImageUploader = ({
             <div
                 className="h-32 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors relative overflow-hidden group"
                 onClick={() => document.getElementById(inputId).click()}
+                onContextMenu={handleContextMenu}
+                onPaste={handlePaste}
+                tabIndex={0}
+                role="button"
+                aria-label={`Upload ${label}`}
             >
                 {hasImage ? (
                     <>
@@ -56,6 +133,7 @@ export const ImageUploader = ({
                     <div className="flex flex-col items-center text-neutral-600">
                         <Upload size={24} className="mb-2" />
                         <span className="text-xs font-medium">Click to Upload</span>
+                        <span className="text-[10px] mt-1 text-neutral-700">Right-click or Ctrl+V to paste</span>
                     </div>
                 )}
 
