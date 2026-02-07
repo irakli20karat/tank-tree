@@ -1,12 +1,6 @@
-import { Upload, Globe, Trash2 } from 'lucide-react';
+import { Upload, Globe, Trash2, Copy, ClipboardPaste } from 'lucide-react';
 
-export const ImageUploader = ({
-    label,
-    value,
-    onUpload,
-    onUrlChange,
-    onClear
-}) => {
+export const ImageUploader = ({ label, value, onUpload, onUrlChange, onClear }) => {
     const inputId = `file-upload-${label.replace(/\s+/g, '-').toLowerCase()}`;
     const hasImage = value && typeof value === 'string' && value.length > 0;
 
@@ -15,35 +9,29 @@ export const ImageUploader = ({
             onUrlChange('');
             return;
         }
-
         onUrlChange(url.trim());
     };
 
     const handlePasteFromClipboard = async () => {
         try {
             const clipboardItems = await navigator.clipboard.read();
-            
             for (const clipboardItem of clipboardItems) {
                 for (const type of clipboardItem.types) {
                     if (type.startsWith('image/')) {
                         const blob = await clipboardItem.getType(type);
                         const file = new File([blob], 'pasted-image.png', { type });
-                        
                         const syntheticEvent = {
-                            target: {
-                                files: [file],
-                                value: ''
-                            }
+                            target: { files: [file], value: '' }
                         };
                         onUpload(syntheticEvent);
                         return;
                     }
                 }
             }
-            
+
             const text = await navigator.clipboard.readText();
             const trimmed = text.trim();
-            if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
+            if (trimmed.startsWith('data:')) {
                 handleUrlInput(trimmed);
             }
         } catch (err) {
@@ -51,59 +39,37 @@ export const ImageUploader = ({
         }
     };
 
-    const handlePaste = async (e) => {
-        e.preventDefault();
-        
-        const items = e.clipboardData?.items;
-        if (!items) return;
+    const handleCopyImage = async () => {
+        if (!hasImage) return;
 
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            
-            if (item.type.startsWith('image/')) {
-                const file = item.getAsFile();
-                if (file) {
-                    const syntheticEvent = {
-                        target: {
-                            files: [file],
-                            value: ''
-                        }
-                    };
-                    onUpload(syntheticEvent);
-                }
-                return;
+        try {
+            // If it's a data URL, convert to blob and copy
+            if (value.startsWith('data:')) {
+                const response = await fetch(value);
+                const blob = await response.blob();
+                await navigator.clipboard.write([
+                    new ClipboardItem({ [blob.type]: blob })
+                ]);
+            } else {
+                // If it's a URL, copy the URL text
+                await navigator.clipboard.writeText(value);
             }
-            
-            if (item.type === 'text/plain') {
-                item.getAsString((text) => {
-                    const trimmed = text.trim();
-                    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:')) {
-                        handleUrlInput(trimmed);
-                    }
-                });
-                return;
-            }
+        } catch (err) {
+            console.error('Failed to copy image:', err);
         }
-    };
-
-    const handleContextMenu = (e) => {
-        e.preventDefault();
-        handlePasteFromClipboard();
     };
 
     return (
         <div className="space-y-2">
             {label && (
-                <label className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider">
+                <label className="block text-sm font-medium text-neutral-300">
                     {label}
                 </label>
             )}
 
             <div
-                className="h-32 w-full border border-dashed border-neutral-700 hover:border-neutral-500 hover:bg-neutral-800 rounded-sm flex flex-col items-center justify-center cursor-pointer transition-colors relative overflow-hidden group"
+                className="relative border-2 border-dashed border-neutral-700 rounded-lg hover:border-neutral-600 transition-colors cursor-pointer group bg-neutral-900/50"
                 onClick={() => document.getElementById(inputId).click()}
-                onContextMenu={handleContextMenu}
-                onPaste={handlePaste}
                 tabIndex={0}
                 role="button"
                 aria-label={`Upload ${label}`}
@@ -112,28 +78,65 @@ export const ImageUploader = ({
                     <>
                         <img
                             src={value}
-                            alt="Preview"
-                            className="w-full h-full object-contain"
+                            alt={label}
+                            className="w-full h-48 object-contain rounded-lg"
                             onError={(e) => {
                                 e.target.style.display = 'none';
                                 e.target.parentElement.querySelector('.error-msg')?.classList.remove('hidden');
                             }}
                         />
-                        <div className="hidden error-msg text-xs text-red-400 text-center px-2">
+                        <div className="hidden error-msg absolute inset-0 flex items-center justify-center text-neutral-500 text-sm">
                             Failed to load image
                         </div>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onClear(); }}
-                            className="absolute top-2 right-2 p-1.5 bg-neutral-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm hover:text-red-400"
-                        >
-                            <Trash2 size={14} />
-                        </button>
+                        <div className="absolute top-2 right-2 flex gap-1">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyImage();
+                                }}
+                                className="p-1.5 bg-neutral-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm hover:text-blue-400"
+                                title="Copy image"
+                            >
+                                <Copy size={16} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePasteFromClipboard();
+                                }}
+                                className="p-1.5 bg-neutral-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm hover:text-green-400"
+                                title="Paste from clipboard"
+                            >
+                                <ClipboardPaste size={16} />
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onClear();
+                                }}
+                                className="p-1.5 bg-neutral-900/80 text-white opacity-0 group-hover:opacity-100 transition-opacity rounded-sm hover:text-red-400"
+                                title="Clear image"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
                     </>
                 ) : (
-                    <div className="flex flex-col items-center text-neutral-600">
-                        <Upload size={24} className="mb-2" />
-                        <span className="text-xs font-medium">Click to Upload</span>
-                        <span className="text-[10px] mt-1 text-neutral-700">Right-click or Ctrl+V to paste</span>
+                    <div className="flex flex-col items-center justify-center py-12 px-4">
+                        <Upload className="w-10 h-10 text-neutral-600 mb-3" />
+                        <p className="text-sm text-neutral-400 font-medium mb-1">Click to Upload</p>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handlePasteFromClipboard();
+                            }}
+                            className="mt-3 px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-sm hover:bg-neutral-750 transition-colors text-neutral-300 text-xs flex items-center gap-1.5"
+                            title="Paste from clipboard"
+                        >
+                            <ClipboardPaste size={14} />
+                            Paste from Clipboard
+                        </button>
                     </div>
                 )}
 
@@ -141,19 +144,17 @@ export const ImageUploader = ({
                     id={inputId}
                     type="file"
                     accept="image/*"
-                    className="hidden"
                     onChange={onUpload}
+                    className="hidden"
                 />
             </div>
 
             <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
-                    <Globe size={12} className="text-neutral-600" />
-                </div>
+                <Globe className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-neutral-600" />
                 <input
                     type="text"
-                    placeholder="Or paste Image URL..."
-                    value={hasImage && !value.startsWith('data:') ? value : ''}
+                    placeholder="Or paste image URL"
+                    value={value || ''}
                     onChange={(e) => handleUrlInput(e.target.value)}
                     className="w-full bg-neutral-950 border border-neutral-700 rounded-sm pl-7 pr-2 py-1.5 text-xs text-neutral-200 focus:border-neutral-500 focus:outline-none placeholder-neutral-600"
                 />
