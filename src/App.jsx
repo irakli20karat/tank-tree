@@ -4,6 +4,7 @@ import { toRoman } from './utils/tankUtils';
 import { useTankTree } from './hooks/useTankTree';
 
 import Sidebar from './components/Sidebar';
+import RightSidebar from './components/RightSidebar';
 import TierZone from './components/TierZone';
 import ConnectionLines from './components/ConnectionLines';
 import Toolbar from './components/Toolbar';
@@ -152,6 +153,13 @@ export default function TankTreeArchitect() {
           </div>
         </div>
       </div>
+      
+      <RightSidebar
+        tank={state.tanks.find(t => t.id === state.selectedTankId)}
+        updateTank={actions.updateTank}
+        isOpen={state.isRightSidebarOpen}
+        setIsOpen={actions.setIsRightSidebarOpen}
+      />
     </div>
   );
 }

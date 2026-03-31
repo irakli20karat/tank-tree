@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import domtoimage from 'dom-to-image';
 import { generateId, DEFAULT_GROUPS, getAllConnectedIds } from '../utils/utils';
-import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH } from '../utils/tankUtils';
+import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH, compressTank } from '../utils/tankUtils';
 import {
   processImageForStorage,
   extractImageLibrary,
@@ -30,6 +30,7 @@ export const useTankTree = () => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [connectionSourceId, setConnectionSourceId] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
 
   const [draggingState, setDraggingState] = useState({
     isPressed: false,
@@ -109,7 +110,7 @@ export const useTankTree = () => {
 
       const dataToSave = {
         timestamp: Date.now(),
-        tanks: tanksWithRefs,
+        tanks: tanksWithRefs.map(compressTank),
         tiers,
         groups,
         imageLibrary: library
@@ -144,8 +145,12 @@ export const useTankTree = () => {
       silverCost: typeof t.silverCost === 'number' ? t.silverCost : 0,
       xpCost: typeof t.xpCost === 'number' ? t.xpCost : 0,
       goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0,
+      costType: t.costType || 'xp',
+      columnIndex: t.columnIndex || 0,
+      parentIds: t.parentIds || [],
       url: typeof t.url === 'string' ? t.url : '',
-      description: typeof t.description === 'string' ? t.description : ''
+      description: typeof t.description === 'string' ? t.description : '',
+      customFields: Array.isArray(t.customFields) ? t.customFields : [],
     }));
   };
 
@@ -204,8 +209,13 @@ export const useTankTree = () => {
 
   const handleSetSelectedTankId = (id) => {
     setSelectedTankId(id);
-    if (id === null) setSelectedIds(new Set());
-    else if (!selectedIds.has(id)) setSelectedIds(new Set([id]));
+    if (id === null) {
+      setSelectedIds(new Set());
+      setIsRightSidebarOpen(false);
+    } else {
+      if (!selectedIds.has(id)) setSelectedIds(new Set([id]));
+      setIsRightSidebarOpen(true);
+    }
   };
 
   const handleTotalReset = () => {
@@ -231,7 +241,7 @@ export const useTankTree = () => {
       timestamp: new Date().toISOString(),
       tiers,
       groups,
-      tanks: tanksWithRefs,
+      tanks: tanksWithRefs.map(compressTank),
       imageLibrary: library
     };
 
@@ -585,6 +595,7 @@ export const useTankTree = () => {
       setTimeout(() => { if (dragData.current) dragData.current.justDropped = false; }, 50);
     } else {
       setIsSidebarOpen(true);
+      setIsRightSidebarOpen(true);
       const isMultiSelect = e.ctrlKey || e.metaKey;
       const leaderId = dragData.current.leaderId;
       const wasAlreadySelected = dragData.current.wasAlreadySelected;
@@ -593,7 +604,10 @@ export const useTankTree = () => {
           const newSet = new Set(selectedIds);
           newSet.delete(leaderId);
           setSelectedIds(newSet);
-          if (selectedTankId === leaderId) setSelectedTankId(null);
+          if (selectedTankId === leaderId) {
+            setSelectedTankId(null);
+            setIsRightSidebarOpen(false);
+          }
         }
       } else {
         if (wasAlreadySelected && leaderId) { setSelectedIds(new Set([leaderId])); setSelectedTankId(leaderId); }
@@ -611,11 +625,11 @@ export const useTankTree = () => {
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
+      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, isRightSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
-      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen, setIsDocsOpen, handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage, handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload, handleEmptyClick, handleRestoreAutosave, handleDiscardAutosave, handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload, setTierRegion, clearTierRegion, handleDismissStorageWarning
+      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen, setIsRightSidebarOpen, setIsDocsOpen, handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage, handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload, handleEmptyClick, handleRestoreAutosave, handleDiscardAutosave, handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload, setTierRegion, clearTierRegion, handleDismissStorageWarning
     },
     handlers: {
       onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },
