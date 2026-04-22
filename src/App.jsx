@@ -15,8 +15,6 @@ import ExportLoader from './components/ExportLoader';
 import DragOverlay from './components/DragOverlay';
 import StorageWarning from './components/StorageWarning';
 
-inject();
-
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
 
