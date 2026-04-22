@@ -25,17 +25,18 @@ export const generateTiers = (count) => Array.from({ length: count }, (_, i) => 
 }));
 
 export const compressTank = (tank) => {
-  const c = { id: tank.id, name: tank.name, tierId: tank.tierId, groupId: tank.groupId };
-  if (tank.columnIndex) c.columnIndex = tank.columnIndex;
-  if (tank.parentIds?.length) c.parentIds = tank.parentIds;
-  if (tank.xpCost) c.xpCost = tank.xpCost;
-  if (tank.silverCost) c.silverCost = tank.silverCost;
-  if (tank.goldCost) c.goldCost = tank.goldCost;
-  if (tank.costType && tank.costType !== 'xp') c.costType = tank.costType;
-  if (tank.url?.trim()) c.url = tank.url;
-  if (tank.description?.trim()) c.description = tank.description;
-  if (tank.customFields?.length) c.customFields = tank.customFields;
-  if (tank.imageRef) c.imageRef = tank.imageRef;
-  if (tank.bgImageRef) c.bgImageRef = tank.bgImageRef;
-  return c;
+    const c = { id: tank.id, name: tank.name, tierId: tank.tierId, groupId: tank.groupId };
+    if (tank.columnIndex) c.columnIndex = tank.columnIndex;
+    if (tank.parentIds?.length) c.parentIds = tank.parentIds;
+    if (tank.xpCost) c.xpCost = tank.xpCost;
+    if (tank.silverCost) c.silverCost = tank.silverCost;
+    if (tank.goldCost) c.goldCost = tank.goldCost;
+    if (tank.costType && tank.costType !== 'xp') c.costType = tank.costType;
+    if (tank.url?.trim()) c.url = tank.url;
+    if (tank.description?.trim()) c.description = tank.description;
+    if (tank.customFields?.length) c.customFields = tank.customFields;
+    if (tank.roleGroupId) c.roleGroupId = tank.roleGroupId;
+    if (tank.imageRef) c.imageRef = tank.imageRef;
+    if (tank.bgImageRef) c.bgImageRef = tank.bgImageRef;
+    return c;
 };

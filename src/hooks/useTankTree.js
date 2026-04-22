@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react';
 import domtoimage from 'dom-to-image';
-import { generateId, DEFAULT_GROUPS, getAllConnectedIds } from '../utils/utils';
+import { generateId, DEFAULT_GROUPS, DEFAULT_ROLES, getAllConnectedIds } from '../utils/utils';
 import { INITIAL_TANKS, generateTiers, TANK_WIDTH, ROW_HEIGHT, COLUMN_WIDTH, compressTank } from '../utils/tankUtils';
 import {
   processImageForStorage,
@@ -24,6 +24,7 @@ export const useTankTree = () => {
   const [storageWarning, setStorageWarning] = useState(null);
   const [tiers, setTiers] = useState(generateTiers(5));
   const [groups, setGroups] = useState(DEFAULT_GROUPS);
+  const [roleGroups, setRoleGroups] = useState(DEFAULT_ROLES);
   const [tanks, setTanks] = useState(INITIAL_TANKS);
   const [imageLibrary, setImageLibrary] = useState({});
   const [selectedTankId, setSelectedTankId] = useState(null);
@@ -57,29 +58,16 @@ export const useTankTree = () => {
     wasAlreadySelected: false
   });
 
-  const getStorageSize = (data) => {
-    return new Blob([JSON.stringify(data)]).size;
-  };
+  const getStorageSize = (data) => new Blob([JSON.stringify(data)]).size;
 
   const checkStorageCapacity = (dataToSave) => {
     const dataSize = getStorageSize(dataToSave);
     const percentage = dataSize / MAX_STORAGE_SIZE;
-
     if (dataSize >= MAX_STORAGE_SIZE) {
-      setStorageWarning({
-        type: 'error',
-        message: `Project size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds storage limit. Autosave disabled. Please save your project as a file and reduce image sizes.`,
-        size: dataSize,
-        percentage: percentage
-      });
+      setStorageWarning({ type: 'error', message: `Project size (${(dataSize / 1024 / 1024).toFixed(2)}MB) exceeds storage limit. Autosave disabled. Please save your project as a file and reduce image sizes.`, size: dataSize, percentage });
       return false;
     } else if (percentage >= WARNING_THRESHOLD) {
-      setStorageWarning({
-        type: 'warning',
-        message: `Project is using ${(percentage * 100).toFixed(0)}% of available storage (${(dataSize / 1024 / 1024).toFixed(2)}MB / ${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(0)}MB). Consider reducing image sizes to prevent autosave issues.`,
-        size: dataSize,
-        percentage: percentage
-      });
+      setStorageWarning({ type: 'warning', message: `Project is using ${(percentage * 100).toFixed(0)}% of available storage (${(dataSize / 1024 / 1024).toFixed(2)}MB / ${(MAX_STORAGE_SIZE / 1024 / 1024).toFixed(0)}MB). Consider reducing image sizes to prevent autosave issues.`, size: dataSize, percentage });
       return true;
     } else {
       setStorageWarning(null);
@@ -94,12 +82,9 @@ export const useTankTree = () => {
   }, []);
 
   useEffect(() => {
-    const checkSave = () => {
-      const savedData = localStorage.getItem(AUTOSAVE_KEY);
-      if (savedData) setShowRestoreModal(true);
-      else setIsReadyToSave(true);
-    };
-    checkSave();
+    const savedData = localStorage.getItem(AUTOSAVE_KEY);
+    if (savedData) setShowRestoreModal(true);
+    else setIsReadyToSave(true);
   }, []);
 
   useEffect(() => {
@@ -107,28 +92,21 @@ export const useTankTree = () => {
     const timer = setTimeout(() => {
       const library = extractImageLibrary(tanks);
       const tanksWithRefs = convertTanksToRefs(tanks, library);
-
       const dataToSave = {
         timestamp: Date.now(),
         tanks: tanksWithRefs.map(compressTank),
         tiers,
         groups,
+        roleGroups,
         imageLibrary: library
       };
-
       const canSave = checkStorageCapacity(dataToSave);
-
       if (canSave) {
         try {
           localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(dataToSave));
         } catch (error) {
           if (error.name === 'QuotaExceededError' || error.code === 22) {
-            setStorageWarning({
-              type: 'error',
-              message: 'Storage quota exceeded! Autosave failed. Please save your project as a file and reduce image sizes.',
-              size: getStorageSize(dataToSave),
-              percentage: 1
-            });
+            setStorageWarning({ type: 'error', message: 'Storage quota exceeded! Autosave failed. Please save your project as a file and reduce image sizes.', size: getStorageSize(dataToSave), percentage: 1 });
           } else {
             console.error('Failed to save to localStorage:', error);
           }
@@ -136,24 +114,28 @@ export const useTankTree = () => {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [tanks, tiers, groups, isReadyToSave, showRestoreModal]);
+  }, [tanks, tiers, groups, roleGroups, isReadyToSave, showRestoreModal]);
 
+  // ─────────────────────────────────────────────
+  //  Sanitization
+  // ─────────────────────────────────────────────
+  const sanitizeTankData = (tanks) => tanks.map(t => ({
+    ...t,
+    silverCost: typeof t.silverCost === 'number' ? t.silverCost : 0,
+    xpCost: typeof t.xpCost === 'number' ? t.xpCost : 0,
+    goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0,
+    costType: t.costType || 'xp',
+    columnIndex: t.columnIndex || 0,
+    parentIds: t.parentIds || [],
+    url: typeof t.url === 'string' ? t.url : '',
+    description: typeof t.description === 'string' ? t.description : '',
+    customFields: Array.isArray(t.customFields) ? t.customFields : [],
+    roleGroupId: t.roleGroupId || null,
+  }));
 
-  const sanitizeTankData = (tanks) => {
-    return tanks.map(t => ({
-      ...t,
-      silverCost: typeof t.silverCost === 'number' ? t.silverCost : 0,
-      xpCost: typeof t.xpCost === 'number' ? t.xpCost : 0,
-      goldCost: typeof t.goldCost === 'number' ? t.goldCost : 0,
-      costType: t.costType || 'xp',
-      columnIndex: t.columnIndex || 0,
-      parentIds: t.parentIds || [],
-      url: typeof t.url === 'string' ? t.url : '',
-      description: typeof t.description === 'string' ? t.description : '',
-      customFields: Array.isArray(t.customFields) ? t.customFields : [],
-    }));
-  };
-
+  // ─────────────────────────────────────────────
+  //  Restore / discard autosave
+  // ─────────────────────────────────────────────
   const handleRestoreAutosave = () => {
     try {
       const savedRaw = localStorage.getItem(AUTOSAVE_KEY);
@@ -162,19 +144,18 @@ export const useTankTree = () => {
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers);
           setGroups(data.groups);
-
+          setRoleGroups(data.roleGroups || []);
           const library = data.imageLibrary || extractImageLibrary(data.tanks);
           setImageLibrary(library);
-
           const resolvedTanks = resolveTankImages(data.tanks, library);
           setTanks(sanitizeTankData(resolvedTanks));
-
           setSelectedTankId(null);
           setSelectedIds(new Set());
           setConnectionSourceId(null);
         }
       }
-    } catch (err) { console.error("Failed to restore", err); } finally { setShowRestoreModal(false); setIsReadyToSave(true); }
+    } catch (err) { console.error("Failed to restore", err); }
+    finally { setShowRestoreModal(false); setIsReadyToSave(true); }
   };
 
   const handleDiscardAutosave = () => {
@@ -183,10 +164,11 @@ export const useTankTree = () => {
     setIsReadyToSave(true);
   };
 
-  const handleDismissStorageWarning = () => {
-    setStorageWarning(null);
-  };
+  const handleDismissStorageWarning = () => setStorageWarning(null);
 
+  // ─────────────────────────────────────────────
+  //  Derived state
+  // ─────────────────────────────────────────────
   const maxIndex = Math.max(...tanks.map(t => t.columnIndex || 0), 0);
   const gridCapacity = Math.max(maxIndex + 3, 6);
 
@@ -209,19 +191,18 @@ export const useTankTree = () => {
 
   const handleSetSelectedTankId = (id) => {
     setSelectedTankId(id);
-    if (id === null) {
-      setSelectedIds(new Set());
-      setIsRightSidebarOpen(false);
-    } else {
-      if (!selectedIds.has(id)) setSelectedIds(new Set([id]));
-      setIsRightSidebarOpen(true);
-    }
+    if (id === null) { setSelectedIds(new Set()); setIsRightSidebarOpen(false); }
+    else { if (!selectedIds.has(id)) setSelectedIds(new Set([id])); setIsRightSidebarOpen(true); }
   };
 
+  // ─────────────────────────────────────────────
+  //  Project save / load / reset
+  // ─────────────────────────────────────────────
   const handleTotalReset = () => {
     if (window.confirm("Are you sure you want to completely reset the project?")) {
       setTiers(generateTiers(5));
       setGroups(DEFAULT_GROUPS);
+      setRoleGroups([]);
       setTanks(INITIAL_TANKS);
       setImageLibrary({});
       setSelectedTankId(null);
@@ -235,25 +216,20 @@ export const useTankTree = () => {
   const handleSaveProject = () => {
     const library = extractImageLibrary(tanks);
     const tanksWithRefs = convertTanksToRefs(tanks, library);
-
     const projectData = {
-      version: "1.1",
+      version: "1.2",
       timestamp: new Date().toISOString(),
-      tiers,
-      groups,
+      tiers, groups,
+      roleGroups,
       tanks: tanksWithRefs.map(compressTank),
       imageLibrary: library
     };
-
     const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `tank-tree.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.href = url; a.download = `tank-tree.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
   };
 
   const handleLoadClick = () => fileInputRef.current?.click();
@@ -267,16 +243,12 @@ export const useTankTree = () => {
         if (data.tanks && data.tiers && data.groups) {
           setTiers(data.tiers);
           setGroups(data.groups);
-
+          setRoleGroups(data.roleGroups || []);
           const library = data.imageLibrary || extractImageLibrary(data.tanks);
           setImageLibrary(library);
-
           const resolvedTanks = resolveTankImages(data.tanks, library);
           setTanks(sanitizeTankData(resolvedTanks));
-
-          setSelectedTankId(null);
-          setSelectedIds(new Set());
-          setConnectionSourceId(null);
+          setSelectedTankId(null); setSelectedIds(new Set()); setConnectionSourceId(null);
         }
       } catch (err) { console.error(err); alert("Failed to parse."); }
     };
@@ -285,22 +257,14 @@ export const useTankTree = () => {
 
   const handleSaveImage = async () => {
     if (!exportRef.current) return;
-
     const previousSelectedId = selectedTankId;
     const previousSelectedIds = new Set(selectedIds);
-
-    setIsExporting(true);
-    setSelectedTankId(null);
-    setSelectedIds(new Set());
-
+    setIsExporting(true); setSelectedTankId(null); setSelectedIds(new Set());
     await new Promise(resolve => setTimeout(resolve, 150));
-
     try {
       const node = exportRef.current;
       const contentWrapper = node.querySelector('.z-10');
-      const PADDING = 60;
-      const SCALE = 2;
-
+      const PADDING = 60, SCALE = 2;
       let exportWidth, exportHeight;
       if (layoutMode === 'horizontal') {
         exportWidth = (contentWrapper?.scrollWidth || node.scrollWidth) + PADDING;
@@ -309,78 +273,56 @@ export const useTankTree = () => {
         exportWidth = (gridCapacity * COLUMN_WIDTH) + PADDING;
         exportHeight = (contentWrapper?.scrollHeight || node.scrollHeight) + PADDING;
       }
-
       await new Promise(resolve => setTimeout(resolve, 500));
-
       const dataUrl = await domtoimage.toPng(node, {
-        width: exportWidth * SCALE,
-        height: exportHeight * SCALE,
-        bgcolor: '#0a0a0a',
-        style: {
-          'transform': `scale(${SCALE})`,
-          'transform-origin': 'top left',
-          'width': `${exportWidth}px`,
-          'height': `${exportHeight}px`,
-          'background-color': '#0a0a0a'
-        }
+        width: exportWidth * SCALE, height: exportHeight * SCALE, bgcolor: '#0a0a0a',
+        style: { 'transform': `scale(${SCALE})`, 'transform-origin': 'top left', 'width': `${exportWidth}px`, 'height': `${exportHeight}px`, 'background-color': '#0a0a0a' }
       });
-
       const link = document.createElement('a');
       link.download = `tech-tree-${new Date().toISOString().slice(0, 10)}.png`;
-      link.href = dataUrl;
-      link.click();
-
-    } catch (err) {
-      console.error('Export failed:', err);
-      alert("Export failed. Please try again.");
-    } finally {
-      setSelectedTankId(previousSelectedId);
-      setSelectedIds(previousSelectedIds);
-      setIsExporting(false);
-    }
+      link.href = dataUrl; link.click();
+    } catch (err) { console.error('Export failed:', err); alert("Export failed. Please try again."); }
+    finally { setSelectedTankId(previousSelectedId); setSelectedIds(previousSelectedIds); setIsExporting(false); }
   };
 
-  const updateTank = (id, field, value) => {
-    setTanks(prevTanks => prevTanks.map(t => t.id === id ? { ...t, [field]: value } : t));
-  };
+  // ─────────────────────────────────────────────
+  //  Tank / group mutations
+  // ─────────────────────────────────────────────
+  const updateTank = (id, field, value) =>
+    setTanks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
 
-  const updateGroup = (groupId, field, value) => {
-    setGroups(prevGroups => prevGroups.map(g => g.id === groupId ? { ...g, [field]: value } : g));
-  };
+  const updateGroup = (groupId, field, value) =>
+    setGroups(prev => prev.map(g => g.id === groupId ? { ...g, [field]: value } : g));
+
+  const updateRoleGroup = (groupId, field, value) =>
+    setRoleGroups(prev => prev.map(g => g.id === groupId ? { ...g, [field]: value } : g));
 
   const updateGroupColor = (gid, color) => updateGroup(gid, 'color', color);
-  const toggleParent = (id, pid) => setTanks(curr => curr.map(t => t.id === id ? { ...t, parentIds: t.parentIds.includes(pid) ? t.parentIds.filter(x => x !== pid) : [...t.parentIds, pid] } : t));
-  const toggleChild = (id, cid) => setTanks(curr => curr.map(t => t.id === cid ? { ...t, parentIds: t.parentIds.includes(id) ? t.parentIds.filter(x => x !== id) : [...t.parentIds, id] } : t));
+
+  const toggleParent = (id, pid) => setTanks(curr => curr.map(t =>
+    t.id === id ? { ...t, parentIds: t.parentIds.includes(pid) ? t.parentIds.filter(x => x !== pid) : [...t.parentIds, pid] } : t
+  ));
+  const toggleChild = (id, cid) => setTanks(curr => curr.map(t =>
+    t.id === cid ? { ...t, parentIds: t.parentIds.includes(id) ? t.parentIds.filter(x => x !== id) : [...t.parentIds, id] } : t
+  ));
 
   const handleAddTank = (tierId, specificColIndex = null) => {
     const tierIndex = tiers.findIndex(t => t.id === tierId);
     let targetCol = 0, parentId = null, inheritedGroup = groups[0].id;
     const parent = selectedTankId ? tanks.find(t => t.id === selectedTankId) : null;
-
     if (specificColIndex !== null) {
       targetCol = specificColIndex;
-      if (parent && tiers.findIndex(t => t.id === parent.tierId) === tierIndex - 1) {
-        parentId = parent.id; inheritedGroup = parent.groupId;
-      }
+      if (parent && tiers.findIndex(t => t.id === parent.tierId) === tierIndex - 1) { parentId = parent.id; inheritedGroup = parent.groupId; }
     } else {
-      if (parent && tiers.findIndex(t => t.id === parent.tierId) === tierIndex - 1) {
-        parentId = parent.id; targetCol = parent.columnIndex || 0; inheritedGroup = parent.groupId;
-      }
+      if (parent && tiers.findIndex(t => t.id === parent.tierId) === tierIndex - 1) { parentId = parent.id; targetCol = parent.columnIndex || 0; inheritedGroup = parent.groupId; }
       while (tanks.some(t => t.tierId === tierId && t.columnIndex === targetCol)) targetCol++;
     }
-
     const newTank = {
-      id: generateId(),
-      name: 'New Vehicle',
-      tierId,
-      image: null,
-      parentIds: parentId ? [parentId] : [],
-      groupId: inheritedGroup,
-      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol,
-      url: '',
-      description: ''
+      id: generateId(), name: 'New Vehicle', tierId, image: null,
+      parentIds: parentId ? [parentId] : [], groupId: inheritedGroup,
+      roleGroupId: null,
+      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol, url: '', description: ''
     };
-
     setTanks(prev => [...prev, newTank]);
     handleSetSelectedTankId(newTank.id);
     setIsSidebarOpen(true);
@@ -393,10 +335,9 @@ export const useTankTree = () => {
       if (startIndex === -1 || endIndex === -1) return prevTiers;
       const lower = Math.min(startIndex, endIndex);
       const upper = Math.max(startIndex, endIndex);
-      return prevTiers.map((tier, index) => {
-        if (index >= lower && index <= upper) return { ...tier, regionName: name, regionColor: color };
-        return tier;
-      });
+      return prevTiers.map((tier, index) =>
+        (index >= lower && index <= upper) ? { ...tier, regionName: name, regionColor: color } : tier
+      );
     });
   };
 
@@ -413,16 +354,9 @@ export const useTankTree = () => {
     if (file && selectedTankId) {
       try {
         const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
-
-        if (isNew) {
-          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
-        }
-
+        if (isNew) setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
         updateTank(selectedTankId, 'image', imageData || imageLibrary[imageRef]);
-      } catch (err) {
-        console.error('Image upload failed:', err);
-        alert('Failed to process image');
-      }
+      } catch (err) { console.error('Image upload failed:', err); alert('Failed to process image'); }
     }
     e.target.value = '';
   };
@@ -432,26 +366,21 @@ export const useTankTree = () => {
     if (file && selectedTankId) {
       try {
         const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
-
-        if (isNew) {
-          setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
-        }
-
+        if (isNew) setImageLibrary(prev => ({ ...prev, [imageRef]: imageData }));
         updateTank(selectedTankId, 'bgImage', imageData || imageLibrary[imageRef]);
-      } catch (err) {
-        console.error('Background image upload failed:', err);
-        alert('Failed to process image');
-      }
+      } catch (err) { console.error('Background image upload failed:', err); alert('Failed to process image'); }
     }
     e.target.value = '';
   };
 
-  const handleAddGroup = () => setGroups(prev => [...prev, { id: generateId(), name: 'New Class', color: '#ffffff', icon: 'lt', isCustom: true }]);
+  // ── Primary group CRUD ──
+  const handleAddGroup = () =>
+    setGroups(prev => [...prev, { id: generateId(), name: 'New Class', color: '#ffffff', icon: 'lt', isCustom: true }]);
 
   const handleDeleteGroup = (groupId) => {
     if (groups.length <= 1) { alert("At least one class group is required."); return; }
     const fallbackGroupId = groups.find(g => g.id !== groupId).id;
-    setTanks(prev => prev.map(t => t.groupId === groupId ? { ...t, groupId: fallbackGroupId } : t));
+    setTanks(prev => prev.map(t => ({ ...t, groupId: t.groupId === groupId ? fallbackGroupId : t.groupId })));
     setGroups(prev => prev.filter(g => g.id !== groupId));
   };
 
@@ -460,20 +389,41 @@ export const useTankTree = () => {
     if (file) {
       try {
         const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
-
-        if (isNew) {
-          setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef }));
-        }
-
+        if (isNew) setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef }));
         updateGroup(groupId, 'icon', imageData || imageLibrary[imageRef]);
-      } catch (err) {
-        console.error('Icon upload failed:', err);
-        alert('Failed to process icon');
-      }
+      } catch (err) { console.error('Icon upload failed:', err); alert('Failed to process icon'); }
     }
     e.target.value = '';
   };
 
+  // ── NEW: Role group CRUD ──
+  const handleAddRoleGroup = () =>
+    setRoleGroups(prev => [...prev, { id: generateId(), name: 'New Role Class', color: '#94a3b8', icon: 'lt', isCustom: true }]);
+
+  const handleDeleteRoleGroup = (groupId) => {
+    // Clear references on any tank that was using this role group
+    setTanks(prev => prev.map(t => ({
+      ...t,
+      roleGroupId: t.roleGroupId === groupId ? null : t.roleGroupId,
+    })));
+    setRoleGroups(prev => prev.filter(g => g.id !== groupId));
+  };
+
+  const handleRoleGroupIconUpload = async (e, groupId) => {
+    const file = e.target.files[0];
+    if (file) {
+      try {
+        const { imageRef, imageData, isNew } = await processImageForStorage(file, imageLibrary);
+        if (isNew) setImageLibrary(prev => ({ ...prev, [imageRef]: imageRef }));
+        updateRoleGroup(groupId, 'icon', imageData || imageLibrary[imageRef]);
+      } catch (err) { console.error('Icon upload failed:', err); alert('Failed to process icon'); }
+    }
+    e.target.value = '';
+  };
+
+  // ─────────────────────────────────────────────
+  //  Drag & drop
+  // ─────────────────────────────────────────────
   const handleDragStart = (e, tank) => {
     if (e.altKey) {
       e.preventDefault(); e.stopPropagation();
@@ -502,17 +452,9 @@ export const useTankTree = () => {
     let currentSelection = new Set(selectedIds);
 
     if (isMultiSelect) {
-      if (!isAlreadySelected) {
-        currentSelection.add(tank.id);
-        setSelectedIds(currentSelection);
-        setSelectedTankId(tank.id);
-      }
+      if (!isAlreadySelected) { currentSelection.add(tank.id); setSelectedIds(currentSelection); setSelectedTankId(tank.id); }
     } else {
-      if (!isAlreadySelected) {
-        currentSelection = new Set([tank.id]);
-        setSelectedIds(currentSelection);
-        setSelectedTankId(tank.id);
-      }
+      if (!isAlreadySelected) { currentSelection = new Set([tank.id]); setSelectedIds(currentSelection); setSelectedTankId(tank.id); }
     }
 
     const leaderEl = tankRefs.current[tank.id];
@@ -523,8 +465,7 @@ export const useTankTree = () => {
       const effectiveSelection = isAlreadySelected ? selectedIds : currentSelection;
       if (effectiveSelection.has(t.id)) {
         const tIndex = tiers.findIndex(tier => tier.id === t.tierId);
-        let pixelDeltaX = 0;
-        let pixelDeltaY = 0;
+        let pixelDeltaX = 0, pixelDeltaY = 0;
         const followerEl = tankRefs.current[t.id];
         if (followerEl) {
           const followerRect = followerEl.getBoundingClientRect();
@@ -536,8 +477,10 @@ export const useTankTree = () => {
     });
 
     dragData.current = {
-      startX: e.clientX, startY: e.clientY, offsetX: e.clientX - leaderRect.left, offsetY: e.clientY - leaderRect.top,
-      leaderId: tank.id, leaderStartTierIndex: tiers.findIndex(t => t.id === tank.tierId), leaderStartCol: tank.columnIndex || 0,
+      startX: e.clientX, startY: e.clientY,
+      offsetX: e.clientX - leaderRect.left, offsetY: e.clientY - leaderRect.top,
+      leaderId: tank.id, leaderStartTierIndex: tiers.findIndex(t => t.id === tank.tierId),
+      leaderStartCol: tank.columnIndex || 0,
       initialPositions, hasMoved: false, justDropped: false, wasAlreadySelected: isAlreadySelected
     };
 
@@ -559,7 +502,7 @@ export const useTankTree = () => {
       const cardCenterX = (e.clientX - dragData.current.offsetX) + (TANK_WIDTH / 2);
       const cardCenterY = (e.clientY - dragData.current.offsetY) + (120 / 2);
       const tierElements = document.querySelectorAll('[data-tier-id]');
-      let hoveredTierId = null; let targetTierRect = null; let hoveredTierIndex = -1;
+      let hoveredTierId = null, targetTierRect = null, hoveredTierIndex = -1;
       for (let i = 0; i < tierElements.length; i++) {
         const el = tierElements[i]; const rect = el.getBoundingClientRect();
         if (cardCenterX >= rect.left && cardCenterX <= rect.right && cardCenterY >= rect.top && cardCenterY <= rect.bottom) {
@@ -583,7 +526,9 @@ export const useTankTree = () => {
 
   const handleDragEnd = (e) => {
     if (dragData.current.hasMoved) {
-      const { col: deltaCol, tierIndex: deltaTier } = dragData.current.lastDeltaCol !== undefined ? { col: dragData.current.lastDeltaCol, tierIndex: dragData.current.lastDeltaTier } : { col: 0, tierIndex: 0 };
+      const { col: deltaCol, tierIndex: deltaTier } = dragData.current.lastDeltaCol !== undefined
+        ? { col: dragData.current.lastDeltaCol, tierIndex: dragData.current.lastDeltaTier }
+        : { col: 0, tierIndex: 0 };
       setTanks(curr => curr.map(t => {
         const initPos = dragData.current.initialPositions[t.id];
         if (!initPos) return t;
@@ -594,20 +539,14 @@ export const useTankTree = () => {
       dragData.current.justDropped = true;
       setTimeout(() => { if (dragData.current) dragData.current.justDropped = false; }, 50);
     } else {
-      setIsSidebarOpen(true);
-      setIsRightSidebarOpen(true);
+      setIsSidebarOpen(true); setIsRightSidebarOpen(true);
       const isMultiSelect = e.ctrlKey || e.metaKey;
       const leaderId = dragData.current.leaderId;
       const wasAlreadySelected = dragData.current.wasAlreadySelected;
       if (isMultiSelect) {
         if (wasAlreadySelected && leaderId) {
-          const newSet = new Set(selectedIds);
-          newSet.delete(leaderId);
-          setSelectedIds(newSet);
-          if (selectedTankId === leaderId) {
-            setSelectedTankId(null);
-            setIsRightSidebarOpen(false);
-          }
+          const newSet = new Set(selectedIds); newSet.delete(leaderId); setSelectedIds(newSet);
+          if (selectedTankId === leaderId) { setSelectedTankId(null); setIsRightSidebarOpen(false); }
         }
       } else {
         if (wasAlreadySelected && leaderId) { setSelectedIds(new Set([leaderId])); setSelectedTankId(leaderId); }
@@ -625,11 +564,24 @@ export const useTankTree = () => {
 
   return {
     state: {
-      layoutMode, tiers, groups, tanks, selectedTankId, selectedIds, connectionSourceId, isSidebarOpen, isRightSidebarOpen, draggingState, conflicts, gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
+      layoutMode, tiers, groups, roleGroups, tanks, selectedTankId, selectedIds,
+      connectionSourceId, isSidebarOpen, isRightSidebarOpen, draggingState, conflicts,
+      gridCapacity, highlightedIds, isDocsOpen, isExporting, showRestoreModal, imageLibrary, storageWarning
     },
     refs: { tankRefs, containerRef, exportRef, dragOverlayRef, fileInputRef, dragData },
     actions: {
-      setLayoutMode, setTiers, setSelectedTankId: handleSetSelectedTankId, setConnectionSourceId, setIsSidebarOpen, setIsRightSidebarOpen, setIsDocsOpen, handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage, handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild, handleImageUpload, handleBgImageUpload, handleEmptyClick, handleRestoreAutosave, handleDiscardAutosave, handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload, setTierRegion, clearTierRegion, handleDismissStorageWarning
+      setLayoutMode, setTiers,
+      setSelectedTankId: handleSetSelectedTankId,
+      setConnectionSourceId, setIsSidebarOpen, setIsRightSidebarOpen, setIsDocsOpen,
+      handleTotalReset, handleSaveProject, handleLoadClick, handleFileChange, handleSaveImage,
+      handleAddTank, handleDeleteTier, updateTank, updateGroupColor, toggleParent, toggleChild,
+      handleImageUpload, handleBgImageUpload, handleEmptyClick,
+      handleRestoreAutosave, handleDiscardAutosave,
+      // Primary groups
+      handleAddGroup, handleDeleteGroup, updateGroup, handleGroupIconUpload,
+      // Role groups ← NEW
+      handleAddRoleGroup, handleDeleteRoleGroup, updateRoleGroup, handleRoleGroupIconUpload,
+      setTierRegion, clearTierRegion, handleDismissStorageWarning
     },
     handlers: {
       onEditTank: (t) => { handleSetSelectedTankId(t.id); setIsSidebarOpen(true); },

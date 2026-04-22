@@ -56,6 +56,7 @@ export default function TankTreeArchitect() {
         tanks={state.tanks}
         tiers={state.tiers}
         groups={state.groups}
+        roleGroups={state.roleGroups}
         updateTank={actions.updateTank}
         updateGroupColor={actions.updateGroupColor}
         handleDeleteTank={handlers.onDeleteTank}
@@ -68,6 +69,10 @@ export default function TankTreeArchitect() {
         handleDeleteGroup={actions.handleDeleteGroup}
         handleGroupIconUpload={actions.handleGroupIconUpload}
         setTierRegion={actions.setTierRegion}
+        updateRoleGroup={actions.updateRoleGroup}
+        handleAddRoleGroup={actions.handleAddRoleGroup}
+        handleDeleteRoleGroup={actions.handleDeleteRoleGroup}
+        handleRoleGroupIconUpload={actions.handleRoleGroupIconUpload}
       />
 
       <div className="flex-1 flex flex-col min-w-0 bg-neutral-950 relative">
@@ -108,6 +113,7 @@ export default function TankTreeArchitect() {
                   tier={tier}
                   tanks={state.tanks.filter(t => t.tierId === tier.id)}
                   groups={state.groups}
+                  roleGroup={state.roleGroups}
                   selectedTankId={state.selectedTankId}
                   selectedIds={state.selectedIds}
                   connectionSourceId={state.connectionSourceId}
@@ -153,7 +159,7 @@ export default function TankTreeArchitect() {
           </div>
         </div>
       </div>
-      
+
       <RightSidebar
         tank={state.tanks.find(t => t.id === state.selectedTankId)}
         updateTank={actions.updateTank}

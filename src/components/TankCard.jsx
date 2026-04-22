@@ -6,6 +6,7 @@ import { GroupIcon } from './GroupIcon';
 const TankCard = ({
     tank,
     group,
+    roleGroup,
     isSelected,
     isConnectionSource,
     isHighlighted,
@@ -213,8 +214,24 @@ const TankCard = ({
                 )}
 
                 <div className="absolute top-0 right-0 bg-neutral-900/90 border-l border-b border-neutral-800 p-1.5 z-20 backdrop-blur-sm">
-                    <GroupIcon icon={group?.icon} color={mainColor} size={24} />
+                    <GroupIcon
+                        icon={group?.icon}
+                        color={mainColor}
+                        size={24}
+                        type="primary"
+                    />
                 </div>
+
+                {roleGroup && (
+                    <div className="absolute top-0 left-0 bg-neutral-900/90 border-r border-b border-neutral-800 p-1.5 z-20 backdrop-blur-sm">
+                        <GroupIcon
+                            icon={roleGroup.icon}
+                            color={roleGroup.color || '#ffffff'}
+                            size={24}
+                            type="role"
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="p-2 text-center w-full relative z-10 bg-transparent flex flex-col justify-between min-h-[48px]">

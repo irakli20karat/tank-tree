@@ -37,10 +37,14 @@ const RelationshipManager = ({ label, icon: Icon, items, linkedIds, onLink, onUn
 };
 
 export const SingleSelectView = ({
-    tank, tanks, tiers, groups, updateTank, toggleParent, toggleChild, handleDeleteTank,
+    tank, tanks, tiers,
+    groups = [],
+    roleGroups = [],
+    updateTank, toggleParent, toggleChild, handleDeleteTank,
     handleImageUpload, handleBgImageUpload
 }) => {
     const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+    const [isRoleGroupMenuOpen, setIsRoleGroupMenuOpen] = useState(false);
 
     const availableParents = tanks.filter(t => {
         const tTier = tiers.find(tier => tier.id === t.tierId);
@@ -53,6 +57,8 @@ export const SingleSelectView = ({
         const sTier = tiers.find(tier => tier.id === tank.tierId);
         return tTier && sTier && tTier.index > sTier.index;
     });
+
+    const roleGroup = roleGroups.find(g => g.id === tank.roleGroupId) || null;
 
     return (
         <div className="space-y-4">
@@ -80,8 +86,7 @@ export const SingleSelectView = ({
 
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
-                        <FileText size={12} />
-                        Description
+                        <FileText size={12} /> Description
                         <span className="text-[9px] text-neutral-600 normal-case font-normal">(shows on hover after 1.5s)</span>
                     </label>
                     <textarea
@@ -95,8 +100,7 @@ export const SingleSelectView = ({
 
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
-                        <ExternalLink size={12} />
-                        Link URL
+                        <ExternalLink size={12} /> Link URL
                     </label>
                     <input
                         type="url"
@@ -106,23 +110,19 @@ export const SingleSelectView = ({
                         className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none font-mono text-xs"
                     />
                     {tank.url && tank.url.trim() && (
-                        <a
-                            href={tank.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-1"
-                        >
+                        <a href={tank.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-1">
                             <ExternalLink size={10} /> Test link
                         </a>
                     )}
                 </div>
 
+                {/* Primary Class */}
                 <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-neutral-500 uppercase">Class Group</label>
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase">Primary Class</label>
                     <div className="relative">
                         <button onClick={() => setIsGroupMenuOpen(!isGroupMenuOpen)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between">
                             <span className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: groups.find(g => g.id === tank.groupId)?.color }}></div>
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: groups.find(g => g.id === tank.groupId)?.color }} />
                                 {groups.find(g => g.id === tank.groupId)?.name.split(' ')[0]}
                             </span>
                             <ChevronDown size={12} />
@@ -137,6 +137,55 @@ export const SingleSelectView = ({
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Role Class — drawn from roleGroups pool */}
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
+                        Role Class
+                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(icon only, no color effect)</span>
+                    </label>
+                    {roleGroups.length === 0 ? (
+                        <p className="text-[10px] text-neutral-600 italic px-1">
+                            No role classes defined yet — create some in the Global Settings panel.
+                        </p>
+                    ) : (
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsRoleGroupMenuOpen(!isRoleGroupMenuOpen)}
+                                className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between"
+                            >
+                                {roleGroup ? (
+                                    <span className="flex items-center gap-2">
+                                        <GroupIcon icon={roleGroup.icon} color={roleGroup.color} size={16} />
+                                        <span className="text-neutral-300">{roleGroup.name.split(' ')[0]}</span>
+                                    </span>
+                                ) : (
+                                    <span className="text-neutral-600 italic">None</span>
+                                )}
+                                <ChevronDown size={12} />
+                            </button>
+                            {isRoleGroupMenuOpen && (
+                                <div className="absolute top-full left-0 w-full bg-neutral-900 border border-neutral-700 z-50 mt-1 shadow-xl">
+                                    <button
+                                        onClick={() => { updateTank(tank.id, 'roleGroupId', null); setIsRoleGroupMenuOpen(false); }}
+                                        className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800 text-neutral-500 italic border-b border-neutral-800"
+                                    >
+                                        None
+                                    </button>
+                                    {roleGroups.map(g => (
+                                        <button
+                                            key={g.id}
+                                            onClick={() => { updateTank(tank.id, 'roleGroupId', g.id); setIsRoleGroupMenuOpen(false); }}
+                                            className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800"
+                                        >
+                                            <GroupIcon icon={g.icon} color={g.color} size={20} type="role" /> {g.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -158,22 +207,17 @@ export const SingleSelectView = ({
             </div>
 
             <RelationshipManager
-                label="Parents"
-                icon={Network}
-                items={availableParents}
-                linkedIds={tank.parentIds || []}
-                onLink={(pid) => toggleParent(tank.id, pid)}
-                onUnlink={(pid) => toggleParent(tank.id, pid)}
+                label="Parents" icon={Network}
+                items={availableParents} linkedIds={tank.parentIds || []}
+                onLink={(pid) => toggleParent(tank.id, pid)} onUnlink={(pid) => toggleParent(tank.id, pid)}
                 allTiers={tiers}
             />
 
             <RelationshipManager
-                label="Children"
-                icon={ArrowDownCircle}
+                label="Children" icon={ArrowDownCircle}
                 items={availableChildren}
                 linkedIds={tanks.filter(t => t.parentIds && t.parentIds.includes(tank.id)).map(t => t.id)}
-                onLink={(cid) => toggleChild(tank.id, cid)}
-                onUnlink={(cid) => toggleChild(tank.id, cid)}
+                onLink={(cid) => toggleChild(tank.id, cid)} onUnlink={(cid) => toggleChild(tank.id, cid)}
                 allTiers={tiers}
             />
 

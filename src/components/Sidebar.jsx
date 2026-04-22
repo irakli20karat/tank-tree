@@ -9,7 +9,9 @@ const Sidebar = ({
     updateTank, updateGroup, handleDeleteTank,
     setTierRegion, toggleParent, toggleChild,
     handleImageUpload, handleBgImageUpload,
-    handleAddGroup, handleDeleteGroup, handleGroupIconUpload
+    handleAddGroup, handleDeleteGroup, handleGroupIconUpload,
+    roleGroups, updateRoleGroup, handleAddRoleGroup,
+    handleDeleteRoleGroup, handleRoleGroupIconUpload
 }) => {
 
     const selectedTanks = selectedIds && selectedIds.size > 0
@@ -34,6 +36,7 @@ const Sidebar = ({
                     <MultiSelectView
                         selectedTanks={selectedTanks}
                         groups={groups}
+                        roleGroups={roleGroups}
                         updateTank={updateTank}
                         handleDeleteTank={handleDeleteTank}
                     />
@@ -43,6 +46,7 @@ const Sidebar = ({
                         tanks={tanks}
                         tiers={tiers}
                         groups={groups}
+                        roleGroups={roleGroups}
                         updateTank={updateTank}
                         handleDeleteTank={handleDeleteTank}
                         toggleParent={toggleParent}
@@ -57,6 +61,11 @@ const Sidebar = ({
                         handleAddGroup={handleAddGroup}
                         handleDeleteGroup={handleDeleteGroup}
                         handleGroupIconUpload={handleGroupIconUpload}
+                        roleGroups={roleGroups}
+                        updateRoleGroup={updateRoleGroup}
+                        handleAddRoleGroup={handleAddRoleGroup}
+                        handleDeleteRoleGroup={handleDeleteRoleGroup}
+                        handleRoleGroupIconUpload={handleRoleGroupIconUpload}
                         tiers={tiers}
                         setTierRegion={setTierRegion}
                     />
