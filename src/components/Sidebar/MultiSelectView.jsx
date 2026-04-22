@@ -4,8 +4,9 @@ import { CostInput } from '../UI/CostInput';
 import { ImageUploader } from '../UI/ImageUploader';
 import { useState } from 'react';
 
-export const MultiSelectView = ({ selectedTanks, groups, updateTank, handleDeleteTank }) => {
+export const MultiSelectView = ({ selectedTanks, groups = [], roleGroups =[], updateTank, handleDeleteTank }) => {
     const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
+    const[isRoleGroupMenuOpen, setIsRoleGroupMenuOpen] = useState(false); // ← NEW
 
     const handleMultiUpdate = (field, value) => {
         selectedTanks.forEach(tank => updateTank(tank.id, field, value));
@@ -30,8 +31,9 @@ export const MultiSelectView = ({ selectedTanks, groups, updateTank, handleDelet
                 </div>
             </div>
 
+            {/* Primary class batch */}
             <div className="space-y-2">
-                <label className="text-[10px] font-bold text-neutral-500 uppercase">Class Group</label>
+                <label className="text-[10px] font-bold text-neutral-500 uppercase">Primary Class</label>
                 <div className="relative">
                     <button onClick={() => setIsGroupMenuOpen(!isGroupMenuOpen)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between">
                         <span className="text-neutral-400 italic">Select to overwrite...</span>
@@ -41,12 +43,48 @@ export const MultiSelectView = ({ selectedTanks, groups, updateTank, handleDelet
                         <div className="absolute top-full left-0 w-full bg-neutral-900 border border-neutral-700 z-50 mt-1 shadow-xl">
                             {groups.map(g => (
                                 <button key={g.id} onClick={() => { handleMultiUpdate('groupId', g.id); setIsGroupMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800">
-                                    <GroupIcon icon={g.icon} color={g.color} size={24} /> {g.name}
+                                    {/* 👇 ADDED type="primary" */}
+                                    <GroupIcon icon={g.icon} color={g.color} size={24} type="primary" /> {g.name}
                                 </button>
                             ))}
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Role class batch — drawn from roleGroups pool */}
+            <div className="space-y-2">
+                <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
+                    Role Class
+                    <span className="text-[9px] text-neutral-600 normal-case font-normal">(icon only)</span>
+                </label>
+                {roleGroups.length === 0 ? (
+                    <p className="text-[10px] text-neutral-600 italic px-1">
+                        No role classes defined yet — create some in Global Settings.
+                    </p>
+                ) : (
+                    <div className="relative">
+                        <button onClick={() => setIsRoleGroupMenuOpen(!isRoleGroupMenuOpen)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between">
+                            <span className="text-neutral-400 italic">Select to overwrite...</span>
+                            <ChevronDown size={12} />
+                        </button>
+                        {isRoleGroupMenuOpen && (
+                            <div className="absolute top-full left-0 w-full bg-neutral-900 border border-neutral-700 z-50 mt-1 shadow-xl">
+                                <button
+                                    onClick={() => { handleMultiUpdate('roleGroupId', null); setIsRoleGroupMenuOpen(false); }}
+                                    className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800 text-neutral-500 italic border-b border-neutral-800"
+                                >
+                                    None (clear)
+                                </button>
+                                {roleGroups.map(g => (
+                                    <button key={g.id} onClick={() => { handleMultiUpdate('roleGroupId', g.id); setIsRoleGroupMenuOpen(false); }} className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-neutral-800">
+                                        <GroupIcon icon={g.icon} color={g.color} size={24} type="role" /> {g.name}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="space-y-2 pt-2 border-t border-neutral-800">
@@ -65,7 +103,6 @@ export const MultiSelectView = ({ selectedTanks, groups, updateTank, handleDelet
                     onUrlChange={(v) => handleMultiUpdate('image', v)}
                     onClear={() => handleMultiUpdate('image', null)}
                 />
-
                 <div className="pt-2">
                     <ImageUploader
                         label="Batch Background"

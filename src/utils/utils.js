@@ -9,6 +9,16 @@ export const DEFAULT_GROUPS = [
     { id: 'g_spg', name: 'SPGs', color: '#c084fc', icon: 'circle' },
 ];
 
+export const DEFAULT_ROLES = [
+    { id: 'r_assault', name: 'Assault', color: '#fbbf24', icon: 'assault' },
+    { id: 'r_breakthrough', name: 'Breakthrough', color: '#fbbf24', icon: 'breakthrough' },
+    { id: 'r_sniper', name: 'Sniper', color: '#fbbf24', icon: 'sniper' },
+    { id: 'r_spg', name: 'SPG', color: '#fbbf24', icon: 'spg' },
+    { id: 'r_support', name: 'Support', color: '#fbbf24', icon: 'support' },
+    { id: 'r_versatile', name: 'Versatile', color: '#fbbf24', icon: 'versatile' },
+    { id: 'r_wheeled', name: 'Wheeled', color: '#fbbf24', icon: 'wheeled' },
+];
+
 export const generateId = () => Math.random().toString(36).substr(2, 9);
 
 // --- Geometry Helpers ---

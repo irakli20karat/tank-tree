@@ -4,7 +4,7 @@ import TankCard from './TankCard';
 import { ROW_HEIGHT, COLUMN_WIDTH, TANK_WIDTH } from '../utils/tankUtils';
 
 const TierZone = ({
-    tier, tanks, groups, selectedTankId, selectedIds, connectionSourceId,
+    tier, tanks, groups, roleGroup, selectedTankId, selectedIds, connectionSourceId,
     highlightedIds, draggingState, conflicts, gridCapacity,
     handlers, registerRef, isLastTier, layoutMode
 }) => {
@@ -135,6 +135,7 @@ const TierZone = ({
                             key={tank.id}
                             tank={tank}
                             group={groups.find(g => g.id === tank.groupId) || groups[0]}
+                            roleGroup={roleGroup ? roleGroup.find(g => g.id === tank.roleGroupId) : null}
 
                             isSelected={selectedIds ? selectedIds.has(tank.id) : (selectedTankId === tank.id)}
 
