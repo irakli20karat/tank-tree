@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import { generateId } from './utils/utils';
 import { toRoman } from './utils/tankUtils';
 import { useTankTree } from './hooks/useTankTree';
+import { Analytics } from '@vercel/analytics/react';
 
 import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
@@ -168,6 +169,7 @@ export default function TankTreeArchitect() {
         isOpen={state.isRightSidebarOpen}
         setIsOpen={actions.setIsRightSidebarOpen}
       />
+      <Analytics />
     </div>
   );
 }
