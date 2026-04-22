@@ -2,7 +2,6 @@ import { Plus } from 'lucide-react';
 import { generateId } from './utils/utils';
 import { toRoman } from './utils/tankUtils';
 import { useTankTree } from './hooks/useTankTree';
-import { inject } from '@vercel/analytics';
 
 import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
