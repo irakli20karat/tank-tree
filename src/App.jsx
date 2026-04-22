@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import { generateId } from './utils/utils';
 import { toRoman } from './utils/tankUtils';
 import { useTankTree } from './hooks/useTankTree';
+import { inject } from '@vercel/analytics';
 
 import Sidebar from './components/Sidebar';
 import RightSidebar from './components/RightSidebar';
@@ -13,6 +14,8 @@ import RestoreModal from './components/RestoreModal';
 import ExportLoader from './components/ExportLoader';
 import DragOverlay from './components/DragOverlay';
 import StorageWarning from './components/StorageWarning';
+
+inject();
 
 export default function TankTreeArchitect() {
   const { state, refs, actions, handlers } = useTankTree();
