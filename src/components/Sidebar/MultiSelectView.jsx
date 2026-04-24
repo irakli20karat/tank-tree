@@ -56,7 +56,6 @@ export const MultiSelectView = ({ selectedTanks, groups = [], roleGroups =[], up
             <div className="space-y-2">
                 <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
                     Role Class
-                    <span className="text-[9px] text-neutral-600 normal-case font-normal">(icon only)</span>
                 </label>
                 {roleGroups.length === 0 ? (
                     <p className="text-[10px] text-neutral-600 italic px-1">

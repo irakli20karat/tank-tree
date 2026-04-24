@@ -116,14 +116,12 @@ export const SingleSelectView = ({
                     )}
                 </div>
 
-                {/* Primary Class */}
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase">Primary Class</label>
                     <div className="relative">
                         <button onClick={() => setIsGroupMenuOpen(!isGroupMenuOpen)} className="w-full bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 flex items-center justify-between">
                             <span className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: groups.find(g => g.id === tank.groupId)?.color }} />
-                                {groups.find(g => g.id === tank.groupId)?.name.split(' ')[0]}
+                                {(() => { const g = groups.find(g => g.id === tank.groupId); return g ? <><GroupIcon icon={g.icon} color={g.color} size={16} /><span className="text-neutral-300">{g.name}</span></> : null; })()}
                             </span>
                             <ChevronDown size={12} />
                         </button>
@@ -139,11 +137,9 @@ export const SingleSelectView = ({
                     </div>
                 </div>
 
-                {/* Role Class — drawn from roleGroups pool */}
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
                         Role Class
-                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(icon only, no color effect)</span>
                     </label>
                     {roleGroups.length === 0 ? (
                         <p className="text-[10px] text-neutral-600 italic px-1">
@@ -157,7 +153,7 @@ export const SingleSelectView = ({
                             >
                                 {roleGroup ? (
                                     <span className="flex items-center gap-2">
-                                        <GroupIcon icon={roleGroup.icon} color={roleGroup.color} size={16} />
+                                        <GroupIcon icon={roleGroup.icon} color={roleGroup.color} type="role" size={16} />
                                         <span className="text-neutral-300">{roleGroup.name.split(' ')[0]}</span>
                                     </span>
                                 ) : (
