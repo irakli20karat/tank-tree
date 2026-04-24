@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react';
 import { generateId } from './utils/utils';
 import { toRoman } from './utils/tankUtils';
-import { useTankTree } from './hooks/useTankTree';
+import { AppHooks } from './hooks/appHooks';
 import { Analytics } from '@vercel/analytics/react';
 
 import Sidebar from './components/Sidebar';
@@ -16,7 +16,7 @@ import DragOverlay from './components/DragOverlay';
 import StorageWarning from './components/StorageWarning';
 
 export default function TankTreeArchitect() {
-  const { state, refs, actions, handlers } = useTankTree();
+  const { state, refs, actions, handlers } = AppHooks();
 
   const handleAddTier = (e) => {
     if (state.isExporting) return;
