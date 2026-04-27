@@ -4,9 +4,9 @@ import { CostInput } from '../UI/CostInput';
 import { ImageUploader } from '../UI/ImageUploader';
 import { useState } from 'react';
 
-export const MultiSelectView = ({ selectedTanks, groups = [], roleGroups =[], updateTank, handleDeleteTank }) => {
+export const MultiSelectView = ({ selectedTanks, groups = [], roleGroups = [], updateTank, handleDeleteTank }) => {
     const [isGroupMenuOpen, setIsGroupMenuOpen] = useState(false);
-    const[isRoleGroupMenuOpen, setIsRoleGroupMenuOpen] = useState(false); // ← NEW
+    const [isRoleGroupMenuOpen, setIsRoleGroupMenuOpen] = useState(false); // ← NEW
 
     const handleMultiUpdate = (field, value) => {
         selectedTanks.forEach(tank => updateTank(tank.id, field, value));
@@ -84,6 +84,27 @@ export const MultiSelectView = ({ selectedTanks, groups = [], roleGroups =[], up
                         )}
                     </div>
                 )}
+            </div>
+
+            <div className="space-y-2">
+                <label className="text-[10px] font-bold text-neutral-500 uppercase">Tag (Batch Overwrite)</label>
+                <div className="flex gap-2 items-center">
+                    <input
+                        type="text"
+                        placeholder="Overwrite tag..."
+                        onChange={(e) => handleMultiUpdate('tag', e.target.value)}
+                        className="flex-1 bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none font-mono text-xs"
+                    />
+                    <div className="relative cursor-pointer flex-shrink-0">
+                        <div className="w-8 h-8 rounded-sm border border-neutral-700 bg-amber-500" />
+                        <input
+                            type="color"
+                            defaultValue="#f59e0b"
+                            onChange={(e) => handleMultiUpdate('tagColor', e.target.value)}
+                            className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                    </div>
+                </div>
             </div>
 
             <div className="space-y-2 pt-2 border-t border-neutral-800">

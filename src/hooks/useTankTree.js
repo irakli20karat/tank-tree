@@ -131,6 +131,8 @@ export const useTankTree = () => {
     description: typeof t.description === 'string' ? t.description : '',
     customFields: Array.isArray(t.customFields) ? t.customFields : [],
     roleGroupId: t.roleGroupId || null,
+    tag: typeof t.tag === 'string' ? t.tag : '',
+    tagColor: typeof t.tagColor === 'string' ? t.tagColor : '#f59e0b',
   }));
 
   // ─────────────────────────────────────────────
@@ -321,7 +323,9 @@ export const useTankTree = () => {
       id: generateId(), name: 'New Vehicle', tierId, image: null,
       parentIds: parentId ? [parentId] : [], groupId: inheritedGroup,
       roleGroupId: null,
-      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol, url: '', description: ''
+      xpCost: 0, silverCost: 0, goldCost: 0, costType: 'xp', columnIndex: targetCol, url: '', description: '',
+      tag: '',
+      tagColor: '#f59e0b',
     };
     setTanks(prev => [...prev, newTank]);
     handleSetSelectedTankId(newTank.id);

@@ -269,6 +269,31 @@ const TankCard = ({
                     <X size={12} />
                 </button>
             )}
+
+            {tank.tag && tank.tag.trim() && (
+                <div
+                    className="absolute pointer-events-none select-none"
+                    style={{
+                        bottom: '10px',
+                        right: '-14px',
+                        transform: 'rotate(-12deg)',
+                        transformOrigin: 'bottom right',
+                        zIndex: 25,
+                    }}
+                >
+                    <div
+                        className="px-2 py-0.5 rounded-sm text-[10px] font-bold uppercase tracking-wide shadow-sm"
+                        style={{
+                            backgroundColor: tank.tagColor || '#f59e0b',
+                            color: tank.tagColor
+                                ? `color-mix(in srgb, ${tank.tagColor} 20%, #000)`
+                                : '#78350f',
+                        }}
+                    >
+                        {tank.tag}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

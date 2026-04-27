@@ -100,6 +100,34 @@ export const SingleSelectView = ({
 
                 <div className="space-y-1">
                     <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
+                        Tag
+                        <span className="text-[9px] text-neutral-600 normal-case font-normal">(shown on card)</span>
+                    </label>
+                    <div className="flex gap-2 items-center">
+                        <input
+                            type="text"
+                            value={tank.tag || ''}
+                            onChange={(e) => updateTank(tank.id, 'tag', e.target.value)}
+                            placeholder="e.g. Premium, Event..."
+                            className="flex-1 bg-neutral-950 border border-neutral-700 rounded-sm p-2 text-sm text-neutral-200 focus:border-neutral-500 focus:outline-none font-mono text-xs"
+                        />
+                        <div className="relative cursor-pointer flex-shrink-0">
+                            <div
+                                className="w-8 h-8 rounded-sm border border-neutral-700"
+                                style={{ backgroundColor: tank.tagColor || '#f59e0b' }}
+                            />
+                            <input
+                                type="color"
+                                value={(tank.tagColor || '#f59e0b').slice(0, 7)}
+                                onChange={(e) => updateTank(tank.id, 'tagColor', e.target.value)}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase flex items-center gap-1.5">
                         <ExternalLink size={12} /> Link URL
                     </label>
                     <input
