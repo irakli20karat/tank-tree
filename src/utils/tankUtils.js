@@ -36,8 +36,8 @@ export const compressTank = (tank) => {
     if (tank.description?.trim()) c.description = tank.description;
     if (tank.customFields?.length) c.customFields = tank.customFields;
     if (tank.roleGroupId) c.roleGroupId = tank.roleGroupId;
-    if (tank.image?.startsWith('ref:')) c.image = tank.image;
-    if (tank.bgImage?.startsWith('ref:')) c.bgImage = tank.bgImage;
+    if (tank.image && !tank.image.startsWith('data:')) c.image = tank.image;
+    if (tank.bgImage && !tank.bgImage.startsWith('data:')) c.bgImage = tank.bgImage;
     if (tank.tag?.trim()) c.tag = tank.tag;
     if (tank.tagColor && tank.tagColor !== '#f59e0b') c.tagColor = tank.tagColor;
     return c;
